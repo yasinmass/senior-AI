@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare AI — Dementia Screening</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/i18n.js" defer></script>
+    <script src="/js/auth.js" defer></script>
+    <link rel="stylesheet" href="/css/home.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-white text-gray-800 min-h-screen flex flex-col p-6">
+    <header class="max-w-6xl w-full mx-auto flex justify-between items-center mb-12">
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+            </div>
+            <span class="font-bold text-gray-900" data-i18n="app_name">Healthcare AI Screening</span>
+        </div>
+        <button id="logout-btn" class="text-gray-500 hover:text-red-500 flex items-center gap-2 font-medium">
+            <span data-i18n="logout">Logout</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+        </button>
+    </header>
+
+    <div class="max-w-4xl w-full mx-auto text-center fade-in flex-grow flex flex-col justify-center">
+        <div class="mb-8 flex justify-center">
+            <div class="w-24 h-24 bg-teal-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-teal-50">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 text-white" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+            </div>
+        </div>
+        <h1 class="text-4xl md:text-6xl font-bold text-gray-900 mb-4 uppercase" data-i18n="home_title">DEMENTIA
+            SCREENING</h1>
+        <p class="text-xl md:text-2xl text-gray-600 mb-12" data-i18n="home_subtitle">AI-driven early cognitive health
+            assessment.</p>
+        <div class="flex justify-center">
+            <a href="/audio.html"
+                class="px-12 py-5 bg-teal-500 hover:bg-teal-600 text-white text-2xl font-bold rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95"
+                data-i18n="home_cta">
+                Start AI Assessment
+            </a>
+        </div>
+        <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-left max-w-4xl mx-auto">
+            <div class="p-8 bg-teal-50 rounded-3xl border border-teal-100">
+                <h3 class="font-bold text-teal-800 mb-2" data-i18n="feat1_title">Voice Biomarkers</h3>
+                <p class="text-sm text-teal-700 leading-relaxed" data-i18n="feat1_desc">Analyzing speech rate and pause
+                    duration for cognitive drift.</p>
+            </div>
+            <div class="p-8 bg-teal-50 rounded-3xl border border-teal-100">
+                <h3 class="font-bold text-teal-800 mb-2" data-i18n="feat2_title">Cognitive Tasks</h3>
+                <p class="text-sm text-teal-700 leading-relaxed" data-i18n="feat2_desc">Integrated orientation and
+                    memory recall metrics.</p>
+            </div>
+            <div class="p-8 bg-teal-50 rounded-3xl border border-teal-100">
+                <h3 class="font-bold text-teal-800 mb-2" data-i18n="feat3_title">AI Predictions</h3>
+                <p class="text-sm text-teal-700 leading-relaxed" data-i18n="feat3_desc">Real-time risk assessment using
+                    pre-trained ML models.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                if (typeof logout === 'function') logout();
+            });
+        });
+    </script>
+</body>
+
+</html>

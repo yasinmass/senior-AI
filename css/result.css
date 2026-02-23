@@ -1,0 +1,45 @@
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 1s ease-out forwards;
+}
+
+.risk-low {
+    background: #ecfdf5;
+    border: 2px solid #a7f3d0;
+    color: #065f46;
+}
+
+.risk-moderate {
+    background: #fffbeb;
+    border: 2px solid #fde68a;
+    color: #92400e;
+}
+
+.risk-high {
+    background: #fef2f2;
+    border: 2px solid #fecaca;
+    color: #991b1b;
+}
+
+.icon-bg-low {
+    background: #10b981;
+}
+
+.icon-bg-moderate {
+    background: #f59e0b;
+}
+
+.icon-bg-high {
+    background: #ef4444;
+}

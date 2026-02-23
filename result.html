@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessment Results - Healthcare AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/i18n.js" defer></script>
+    <script src="/js/auth.js" defer></script>
+    <link rel="stylesheet" href="/css/result.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        .pulse-ring {
+            animation: pulseRing 2s infinite;
+        }
+
+        @keyframes pulseRing {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 16px rgba(20, 184, 166, 0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen flex items-center justify-center p-6 py-12">
+    <div class="max-w-3xl w-full fade-in">
+
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-2" data-i18n="result_heading">AI Cognitive Report</h1>
+            <p class="text-gray-500" data-i18n="result_subtitle">Combined voice biomarker + cognitive quiz analysis</p>
+        </div>
+
+        <!-- ML Card -->
+        <div id="ml-diagnosis-card"
+            class="bg-white rounded-3xl shadow-xl p-8 mb-6 text-center border-2 border-gray-100 transition-all duration-700">
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4" data-i18n="result_ml_label">Voice
+                Biomarker AI Model</p>
+            <div id="ml-icon"
+                class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-3xl font-bold bg-gray-300">
+                ?</div>
+            <h2 id="ml-prediction-text" class="text-3xl font-extrabold mb-2 uppercase tracking-wider text-gray-400"
+                data-i18n="result_ml_analyzing">Analyzing...</h2>
+            <p id="ml-subtitle" class="text-gray-500 text-sm mb-4" data-i18n="result_ml_loading">Loading voice analysis
+                from AI model</p>
+        </div>
+
+        <!-- Quiz Scores -->
+        <div class="bg-white rounded-3xl shadow-xl p-8 mb-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6" data-i18n="result_quiz_label">
+                Cognitive Quiz Performance</p>
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="text-center p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                    <p class="text-xs text-blue-600 font-bold uppercase mb-2" data-i18n="result_orientation">Orientation
+                    </p>
+                    <div id="orientation-score" class="text-2xl font-extrabold text-blue-700">—</div>
+                    <div class="text-xs text-blue-400 mt-1" data-i18n="out_of_10">out of 10</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 rounded-2xl border border-purple-100">
+                    <p class="text-xs text-purple-600 font-bold uppercase mb-2" data-i18n="result_memory">Memory</p>
+                    <div id="memory-score" class="text-2xl font-extrabold text-purple-700">—</div>
+                    <div class="text-xs text-purple-400 mt-1" data-i18n="out_of_10">out of 10</div>
+                </div>
+                <div class="text-center p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                    <p class="text-xs text-orange-600 font-bold uppercase mb-2" data-i18n="result_executive">Executive
+                    </p>
+                    <div id="executive-score" class="text-2xl font-extrabold text-orange-700">—</div>
+                    <div class="text-xs text-orange-400 mt-1" data-i18n="out_of_10">out of 10</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="text-center p-4 bg-teal-50 rounded-2xl border border-teal-100">
+                    <p class="text-xs text-teal-600 font-bold uppercase mb-2" data-i18n="result_total">Total Score</p>
+                    <div id="total-score-display" class="text-2xl font-extrabold text-teal-700">—</div>
+                    <div class="text-xs text-teal-400 mt-1" data-i18n="out_of_30">out of 30</div>
+                </div>
+                <div class="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p class="text-xs text-gray-500 font-bold uppercase mb-2" data-i18n="result_rt">Avg Reaction Time
+                    </p>
+                    <div id="reaction-time-display" class="text-2xl font-extrabold text-gray-700">—</div>
+                    <div class="text-xs text-gray-400 mt-1" data-i18n="sec_per_q">seconds per question</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voice Biomarkers -->
+        <div class="bg-white rounded-3xl shadow-xl p-8 mb-6">
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4" data-i18n="result_voice_label">
+                Voice Biomarkers</p>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div id="speech-rate" class="text-xl font-extrabold text-gray-700">—</div>
+                    <div class="text-xs text-gray-400 mt-1" data-i18n="result_wpm">Words per Minute</div>
+                </div>
+                <div class="text-center">
+                    <div id="pause-duration" class="text-xl font-extrabold text-gray-700">—</div>
+                    <div class="text-xs text-gray-400 mt-1" data-i18n="result_pause">Pause Duration (s)</div>
+                </div>
+                <div class="text-center">
+                    <div id="word-count" class="text-xl font-extrabold text-gray-700">—</div>
+                    <div class="text-xs text-gray-400 mt-1" data-i18n="result_words">Words Spoken</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Verdict -->
+        <div id="final-verdict-card"
+            class="bg-white rounded-3xl shadow-xl p-10 mb-6 text-center border-2 border-gray-100 transition-all duration-700">
+            <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6" data-i18n="result_final_label">
+                Final Combined Assessment</p>
+            <div id="verdict-icon"
+                class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-4xl font-bold bg-gray-300">
+                ?</div>
+            <h2 id="verdict-text" class="text-4xl font-extrabold mb-3 uppercase tracking-wider"
+                data-i18n="result_analyzing">Analyzing...</h2>
+            <p id="verdict-description" class="text-gray-600 text-lg max-w-lg mx-auto"></p>
+            <div id="verdict-summary" class="mt-4 text-sm text-gray-500 italic"></div>
+        </div>
+
+        <button onclick="window.location.href='/index.html'"
+            class="w-full py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 text-lg"
+            data-i18n="return_dashboard">Return to Dashboard</button>
+    </div>
+    <script src="/js/result.js"></script>
+</body>
+
+</html>

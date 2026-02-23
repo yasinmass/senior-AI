@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Healthcare AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/i18n.js" defer></script>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6 py-12">
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+        <h1 class="text-2xl font-bold text-center mb-8" data-i18n="signup_heading">Create Account</h1>
+        <form id="signup-form" class="space-y-4">
+            <input type="text" id="name" required class="w-full p-3 border rounded-xl" data-i18n-ph="signup_name">
+            <input type="number" id="age" required class="w-full p-3 border rounded-xl" data-i18n-ph="signup_age">
+            <input type="date" id="dob" required class="w-full p-3 border rounded-xl">
+            <input type="email" id="email" required class="w-full p-3 border rounded-xl" data-i18n-ph="signup_email">
+            <input type="tel" id="phone" required class="w-full p-3 border rounded-xl" data-i18n-ph="signup_phone">
+            <input type="password" id="password" required class="w-full p-3 border rounded-xl"
+                data-i18n-ph="signup_password">
+            <div id="error-msg" class="text-red-500 text-sm hidden"></div>
+            <button type="submit" id="submit-btn"
+                class="w-full py-4 bg-teal-500 text-white font-bold rounded-xl active:scale-95"
+                data-i18n="signup_btn">Register</button>
+        </form>
+        <p class="mt-6 text-center text-gray-500">
+            <span data-i18n="signup_have_account">Already have an account?</span>
+            <a href="/login.html" class="text-teal-600 font-bold ml-1" data-i18n="signup_login_link">Sign In</a>
+        </p>
+    </div>
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            const errorMsg = document.getElementById('error-msg');
+            btn.textContent = (window.i18n && window.i18n.t('signup_loading')) || 'Creating Account...';
+            btn.disabled = true;
+            errorMsg.classList.add('hidden');
+            const payload = {
+                name: document.getElementById('name').value,
+                age: document.getElementById('age').value,
+                dob: document.getElementById('dob').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                password: document.getElementById('password').value
+            };
+            try {
+                const res = await fetch(`${API_BASE}/signup/`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/index.html';
+                } else {
+                    errorMsg.textContent = data.error || 'Registration failed.';
+                    errorMsg.classList.remove('hidden');
+                    btn.textContent = (window.i18n && window.i18n.t('signup_btn')) || 'Register';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Cannot connect to server. Is Django running on port 8000?';
+                errorMsg.classList.remove('hidden');
+                btn.textContent = (window.i18n && window.i18n.t('signup_btn')) || 'Register';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
