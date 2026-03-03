@@ -2,6 +2,29 @@ from django.db import models
 from django.contrib.auth.hashers import make_password
 
 
+class Doctor(models.Model):
+    """Stores registered doctor information."""
+    name = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=256)  # hashed
+    specialization = models.CharField(max_length=200, default='Neurology')
+    license_number = models.CharField(max_length=100, blank=True)
+    hospital = models.CharField(max_length=200, blank=True)
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def set_password(self, raw_password):
+        self.password = make_password(raw_password)
+
+    def __str__(self):
+        return f"Dr. {self.name} ({self.email})"
+
+    class Meta:
+        db_table = 'doctors'
+        verbose_name = 'Doctor'
+        verbose_name_plural = 'Doctors'
+
+
 class Patient(models.Model):
     """Stores registered user/patient information."""
     name = models.CharField(max_length=200)
@@ -74,3 +97,32 @@ class Assessment(models.Model):
         verbose_name = 'Assessment'
         verbose_name_plural = 'Assessments'
         ordering = ['-created_at']
+
+
+class ClinicalPlan(models.Model):
+    """Stores clinical plans (exercises, diet, tasks) assigned by doctors to patients."""
+    PLAN_TYPES = [
+        ('exercise', 'Exercise Schedule'),
+        ('diet', 'Diet Chart'),
+        ('task', 'Clinical Task'),
+    ]
+
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='plans')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='plans')
+    plan_type = models.CharField(max_length=20, choices=PLAN_TYPES, default='exercise')
+    
+    # Store the actual plan data (weekly schedule etc) as JSON
+    content = models.JSONField(default=dict) 
+    
+    special_instructions = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'clinical_plans'
+        verbose_name = 'Clinical Plan'
+        verbose_name_plural = 'Clinical Plans'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_plan_type_display()} for {self.patient.name}"
