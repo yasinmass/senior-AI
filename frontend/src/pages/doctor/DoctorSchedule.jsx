@@ -3,60 +3,56 @@ import DashboardLayout from '../../components/DashboardLayout';
 import { getDoctorPatients, assignClinicalPlan } from '../../utils/api';
 
 const BRAIN_EXERCISES = [
-    { id: 'meditation', name: 'Mindfulness Meditation', cat: 'Mental', dur: '10 min', desc: 'Deep breathing and focused awareness to reduce neuro-inflammation.' },
-    { id: 'dual_n_back', name: 'Dual N-Back', cat: 'Cognitive', dur: '15 min', desc: 'Working memory training that improves fluid intelligence.' },
-    { id: 'speed_match', name: 'Processing Speed Match', cat: 'Speed', dur: '10 min', desc: 'Identify pairs quickly to maintain synaptic firing speed.' },
-    { id: 'semantic_link', name: 'Semantic Linking', cat: 'Language', dur: '20 min', desc: 'Link unrelated concepts to strengthen associative memory.' },
-    { id: 'spatial_rotation', name: 'Mental Rotation', cat: 'Visual', dur: '15 min', desc: 'Rotate 3D objects mentally to exercise parietal lobe.' },
-    { id: 'stretching', name: 'Neurological Stretching', cat: 'Motor', dur: '15 min', desc: 'Gentle movements to maintain motor cortex plasticity.' },
+    { id: 'meditation', name: 'Mindfulness Meditation', cat: 'Mental', dur: '10 min', desc: 'Focus on breathing and relaxation.' },
+    { id: 'dual_n_back', name: 'Dual N-Back', cat: 'Cognitive', dur: '15 min', desc: 'Working memory and concentration task.' },
+    { id: 'speed_match', name: 'Processing Speed Match', cat: 'Speed', dur: '10 min', desc: 'Identify matching symbols quickly.' },
+    { id: 'semantic_link', name: 'Semantic Linking', cat: 'Language', dur: '20 min', desc: 'Connect related concepts words.' },
+    { id: 'spatial_rotation', name: 'Spatial Rotation', cat: 'Visual', dur: '15 min', desc: 'Mentally rotate 3D objects.' },
+    { id: 'stretching', name: 'Daily Stretching', cat: 'Motor', dur: '15 min', desc: 'Physical movement for brain health.' },
 ];
 
 const BRAIN_FOODS = [
-    { id: 'blueberries', name: 'Blueberries / Berries', cat: 'Antioxidants', desc: 'Rich in flavonoids that delay mental aging.' },
-    { id: 'walnuts', name: 'Walnuts', cat: 'Omega-3', desc: 'High in DHA, shown to improve cognitive performance.' },
-    { id: 'turmeric', name: 'Turmeric with Black Pepper', cat: 'Anti-inflammatory', desc: 'Curcumin helps clear amyloid plaques in the brain.' },
-    { id: 'broccoli', name: 'Steamed Broccoli', cat: 'Vitamin K', desc: 'Essential for forming sphingolipids, a type of fat in brain cells.' },
-    { id: 'fatty_fish', name: 'Salmon / Mackerel', cat: 'Omega-3', desc: 'Provides building blocks for brain and nerve cells.' },
-    { id: 'dark_choco', name: 'Dark Chocolate (85%+)', cat: 'Flavonoids', desc: 'Powerful antioxidants to protect brain cells from oxidation.' },
-    { id: 'leafy_greens', name: 'Spinach / Kale', cat: 'Vitamins', desc: 'Lutein and Vitamin K for slowing cognitive decline.' },
+    { id: 'blueberries', name: 'Blueberries', cat: 'Antioxidants', desc: 'Rich in flavonoids.' },
+    { id: 'walnuts', name: 'Walnuts', cat: 'Omega-3', desc: 'Healthy fats for brain cells.' },
+    { id: 'turmeric', name: 'Turmeric', cat: 'Anti-inflammatory', desc: 'Curcumin for neuro-health.' },
+    { id: 'fatty_fish', name: 'Fatty Fish', cat: 'Omega-3', desc: 'Salmon or trout sources.' },
+    { id: 'dark_choco', name: 'Dark Chocolate', cat: 'Flavonoids', desc: 'At least 70% cocoa.' },
+    { id: 'leafy_greens', name: 'Leafy Greens', cat: 'Vitamins', desc: 'Spinach, kale, or collards.' },
 ];
-
-const EXERCISES = [...BRAIN_EXERCISES]; // Use our new refined library
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function DoctorSchedule() {
     const [patients, setPatients] = useState([]);
     const [selectedPatient, setSelectedPatient] = useState('');
-    const [planType, setPlanType] = useState('exercise');
+    const [planType, setPlanType] = useState('exercise'); // 'exercise' or 'diet'
     const [dayExercises, setDayExercises] = useState({});
     const [instructions, setInstructions] = useState('');
     const [saved, setSaved] = useState(false);
-    const [dragEx, setDragEx] = useState(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
 
-    // API Key provided by user
+    // Note: Only for demonstration. In production, use backend proxy.
     const GEMINI_KEY = "AIzaSyChnbBmZ6Rfty4A6BZveGknhI1LkJlfGQU";
 
     useEffect(() => {
-        async function loadPatients() {
+        async function loadData() {
             try {
                 const data = await getDoctorPatients();
                 if (data.success) setPatients(data.patients);
             } catch (err) {
-                console.error("Load patients failed:", err);
+                console.error("Failed to load patients for schedule:", err);
             } finally {
                 setLoading(false);
             }
         }
-        loadPatients();
+        loadData();
     }, []);
 
     const activeLibrary = planType === 'diet' ? BRAIN_FOODS : BRAIN_EXERCISES;
 
     async function generateAIDiet() {
-        if (!selectedPatient) return alert("Select a patient first.");
+        if (!selectedPatient) return;
         const p = patients.find(item => item.id == selectedPatient);
         if (!p) return;
 
@@ -64,70 +60,35 @@ export default function DoctorSchedule() {
         const risk = p.latest_assessment?.risk_level || "Unknown";
         const score = p.latest_assessment?.total_score || "N/A";
 
-        const prompt = `Act as a clinical neurologist and nutritionist. Create a 7-day brain-healthy diet plan for a patient with a Dementia risk level of ${risk} (Cognitive Score: ${score}/30). 
-        The plan should focus on neuro-protective foods like berries, walnuts, and fatty fish.
-        Format the output precisely as JSON with days as keys ('Monday', 'Tuesday', etc.) and an array of food item IDs (from this list: ${BRAIN_FOODS.map(f => f.id).join(', ')}) as values.
-        Only return the JSON object, nothing else.`;
+        // Call Gemini API to get a structured diet suggestion based on patient risk
+        const prompt = `As a neurologist/nutritionist, create a 7-day healthy brain diet plan for a patient with dementia risk level ${risk} (MoCA score ${score}/30). 
+    Please suggest from these food IDs: ${BRAIN_FOODS.map(f => f.id).join(', ')}. 
+    Return a valid JSON object where keys are the 7 days (Monday, Tuesday, etc.) and values are arrays of food IDs. Choose 2-3 items per day.`;
 
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }]
                 })
             });
-            const result = await res.json();
-
-            if (result.error) {
-                throw new Error(result.error.message || "API Error");
-            }
-
-            if (!result.candidates || !result.candidates[0]?.content?.parts[0]?.text) {
-                throw new Error("Invalid response structure from AI");
-            }
-
+            const result = await resp.json();
             const text = result.candidates[0].content.parts[0].text;
-
-            // More robust JSON extraction
             const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error("AI did not return a valid schedule object");
-
             const aiPlan = JSON.parse(jsonMatch[0]);
 
-            // Sanitize: ensure only valid IDs from BRAIN_FOODS are included
-            const sanitizedPlan = {};
+            // Sanitize and set
+            const sanitized = {};
             const validIds = BRAIN_FOODS.map(f => f.id);
-
             DAYS.forEach(day => {
-                if (aiPlan[day] && Array.isArray(aiPlan[day])) {
-                    sanitizedPlan[day] = aiPlan[day].filter(id => validIds.includes(id));
-                } else {
-                    sanitizedPlan[day] = [];
-                }
+                sanitized[day] = (aiPlan[day] || []).filter(id => validIds.includes(id));
             });
 
-            setDayExercises(sanitizedPlan);
-            setInstructions(`AI-Generated neuro-protective diet plan based on ${risk} risk profile. Please verify before finalizing.`);
+            setDayExercises(sanitized);
+            setInstructions(`AI-Generated Diet based on Clinical Risk Level: ${risk}. Please follow strictly for cognitive maintenance.`);
         } catch (err) {
-            console.error("AI Generation failed:", err);
-            const isQuota = err.message.toLowerCase().includes("quota");
-
-            if (isQuota) {
-                const useTemplate = window.confirm("AI Quota Exceeded. Would you like to use the Standard Neuro-Protective Clinical Template instead?");
-                if (useTemplate) {
-                    const templatePlan = {};
-                    const items = BRAIN_FOODS.map(f => f.id);
-                    DAYS.forEach((day, i) => {
-                        // Distribute foods across the week
-                        templatePlan[day] = [items[i % items.length], items[(i + 3) % items.length]];
-                    });
-                    setDayExercises(templatePlan);
-                    setInstructions("Standardized neuro-protective clinical template applied due to AI engine unavailability. Please customize as needed.");
-                    return;
-                }
-            }
-            alert(`AI Engine Status: ${err.message}. Please check if the API key is active or try manual assignment.`);
+            console.error("Failed to generate AI diet:", err);
         } finally {
             setGenerating(false);
         }
@@ -135,214 +96,171 @@ export default function DoctorSchedule() {
 
     function addExercise(day, exId) {
         setDayExercises(prev => {
-            const existing = prev[day] || [];
-            if (existing.includes(exId)) return prev;
-            return { ...prev, [day]: [...existing, exId] };
+            const current = prev[day] || [];
+            if (current.includes(exId)) return prev;
+            return { ...prev, [day]: [...current, exId] };
         });
     }
 
     function removeExercise(day, exId) {
-        setDayExercises(prev => ({ ...prev, [day]: (prev[day] || []).filter(e => e !== exId) }));
+        setDayExercises(prev => ({
+            ...prev,
+            [day]: (prev[day] || []).filter(e => e !== exId)
+        }));
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
-        if (!selectedPatient) return alert('Please select a patient.');
-
-        const payload = {
-            patient_id: selectedPatient,
-            plan_type: planType,
-            content: dayExercises,
-            special_instructions: instructions
-        };
-
+        if (!selectedPatient) return;
         try {
-            const data = await assignClinicalPlan(payload);
-            if (data.success) setSaved(true);
+            const res = await assignClinicalPlan({
+                patient_id: selectedPatient,
+                plan_type: planType,
+                content: dayExercises,
+                special_instructions: instructions
+            });
+            if (res.success) setSaved(true);
         } catch (err) {
-            alert("Failed to assign plan: " + err.message);
+            console.error("Assignment failed:", err);
         }
     }
 
     if (saved) return (
-        <DashboardLayout role="doctor" title="Schedule Assignment">
-            <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
-                <div className="card shadow-2xl p-12 text-center max-w-lg border-0 bg-white">
-                    <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-5xl mx-auto mb-8 shadow-inner">✓</div>
-                    <h3 className="text-3xl font-black text-gray-900 uppercase tracking-tighter mb-4">Therapeutic Plan Pushed</h3>
-                    <p className="text-gray-500 font-medium italic mb-10 leading-relaxed">
-                        The specialized clinical schedule has been successfully deployed to the patient's portal. Direct clinical monitoring is now active.
-                    </p>
-                    <div className="flex gap-4 justify-center">
-                        <button className="px-8 py-3 bg-gray-900 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-black transition-all"
-                            onClick={() => { setSaved(false); setDayExercises({}); setSelectedPatient(''); setInstructions(''); }}>
-                            Assign New Target
-                        </button>
-                        <button className="px-8 py-3 border-2 border-gray-100 text-gray-400 font-black uppercase tracking-widest text-[10px] rounded-xl hover:border-teal-600 hover:text-teal-600 transition-all"
-                            onClick={() => window.location.href = '/doctor'}>
-                            Return to Command
-                        </button>
-                    </div>
-                </div>
+        <DashboardLayout role="doctor" title="Success">
+            <div className="p-20 text-center">
+                <div className="text-5xl mb-4 text-green-500">✓</div>
+                <h2 className="text-2xl font-bold mb-2">Clinical Plan Assigned</h2>
+                <p className="text-gray-500 mb-6">Patient can now see their new {planType} schedule in their portal.</p>
+                <button onClick={() => { setSaved(false); setDayExercises({}); setSelectedPatient(''); }} className="bg-primary text-white px-6 py-2 rounded">New Assignment</button>
             </div>
         </DashboardLayout>
     );
 
-    const [activeDay, setActiveDay] = useState('Monday');
-    const totalAssigned = Object.values(dayExercises).flat().length;
-
     return (
-        <DashboardLayout role="doctor" title="Clinical Target Assignment">
-            <div className="page-header mb-8 flex justify-between items-end">
-                <div>
-                    <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Clinical Assignment</h2>
-                    <p className="text-gray-500 font-medium italic">Prescribe personalized interventions for enrolled patients.</p>
-                </div>
-                <div className="bg-teal-50 px-6 py-3 rounded-2xl border border-teal-100 flex items-center gap-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-teal-600">Active Prescriptions</span>
-                    <span className="text-2xl font-black text-teal-700">{totalAssigned}</span>
-                </div>
+        <DashboardLayout role="doctor" title="Therapeutic Schedular">
+            <div className="mb-8 border-b pb-4">
+                <h2 className="text-2xl font-bold text-gray-800">Set Patient Schedule</h2>
+                <p className="text-gray-500 text-sm">Assign personalized exercises and diet plans to support neurological health.</p>
             </div>
 
-            <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-[380px_1fr] gap-8">
-                    {/* Control Panel */}
-                    <div className="space-y-6">
-                        <div className="card shadow-xl border-0 overflow-hidden bg-white">
-                            <div className="px-6 py-4 bg-gray-900 text-white flex items-center justify-between">
-                                <h3 className="font-black uppercase tracking-widest text-[10px]">Configuration</h3>
-                                <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></div>
-                            </div>
-                            <div className="p-8 space-y-8">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Select Enrolled Patient</label>
-                                    <select className="form-control py-4 px-6 rounded-2xl bg-gray-50 border-gray-50 font-medium shadow-inner"
-                                        value={selectedPatient} onChange={e => setSelectedPatient(e.target.value)} required>
-                                        <option value="">Search clinical registry…</option>
-                                        {patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.latest_assessment?.risk_level || 'No Screening'})</option>)}
-                                    </select>
-                                </div>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: Settings */}
+                <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm space-y-6">
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Select Patient</label>
+                        <select
+                            className="w-full border border-gray-200 p-2 text-sm rounded"
+                            value={selectedPatient}
+                            onChange={e => setSelectedPatient(e.target.value)}
+                            required
+                        >
+                            <option value="">-- Select Patient --</option>
+                            {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Assignment Category</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {[
-                                            { id: 'exercise', label: 'Exercises', icon: '🧠' },
-                                            { id: 'diet', label: 'Diet Chart', icon: '🥗' },
-                                            { id: 'task', label: 'Clinical Task', icon: '📋' }
-                                        ].map(t => (
-                                            <button key={t.id} type="button"
-                                                className={`py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all border-2 ${planType === t.id ? 'bg-teal-600 text-white border-teal-600 shadow-xl shadow-teal-100' : 'bg-white text-gray-400 border-gray-50 hover:border-teal-600'}`}
-                                                onClick={() => { setPlanType(t.id); setDayExercises({}); }}>
-                                                <span className="text-lg">{t.icon}</span> {t.label}
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Plan Type</label>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 text-xs font-bold rounded border ${planType === 'exercise' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-400 border-gray-200'}`}
+                                onClick={() => { setPlanType('exercise'); setDayExercises({}); }}
+                            >
+                                Exercises
+                            </button>
+                            <button
+                                type="button"
+                                className={`flex-1 py-2 text-xs font-bold rounded border ${planType === 'diet' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-400 border-gray-200'}`}
+                                onClick={() => { setPlanType('diet'); setDayExercises({}); }}
+                            >
+                                Diet Plan
+                            </button>
+                        </div>
+                    </div>
+
+                    {planType === 'diet' && (
+                        <button
+                            type="button"
+                            onClick={generateAIDiet}
+                            disabled={generating || !selectedPatient}
+                            className="w-full bg-teal-600 text-white py-2 rounded text-xs font-bold hover:bg-teal-700 disabled:opacity-50"
+                        >
+                            {generating ? 'AI Generating...' : 'Generate AI Diet Suggestion'}
+                        </button>
+                    )}
+
+                    <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-2">Clinical Instructions</label>
+                        <textarea
+                            className="w-full border border-gray-200 p-3 text-xs rounded min-h-[100px]"
+                            placeholder="Enter special instructions or notes for the patient..."
+                            value={instructions}
+                            onChange={e => setInstructions(e.target.value)}
+                        />
+                    </div>
+
+                    <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-md font-bold text-sm shadow-sm hover:bg-black transition-colors">
+                        Assign Plan to Patient
+                    </button>
+                </div>
+
+                {/* Center/Right Column: Schedule Builder */}
+                <div className="lg:col-span-2 space-y-8">
+                    <div className="flex overflow-x-auto gap-2 pb-2">
+                        {DAYS.map(day => (
+                            <div key={day} className="min-w-[150px] flex-1">
+                                <div className="bg-gray-100 p-2 text-center text-[10px] font-bold text-gray-500 uppercase rounded-t-lg">
+                                    {day}
+                                </div>
+                                <div className="bg-white border-l border-r border-b border-gray-200 p-3 min-h-[150px] space-y-2 rounded-b-lg">
+                                    {(dayExercises[day] || []).length === 0 && <p className="text-[10px] text-gray-300 italic text-center mt-4">No {planType}s</p>}
+                                    {(dayExercises[day] || []).map(exId => {
+                                        const libItem = activeLibrary.find(e => e.id === exId);
+                                        return libItem ? (
+                                            <div key={exId} className="bg-gray-50 border border-gray-100 p-2 rounded text-[10px] flex justify-between items-center group">
+                                                <span className="font-bold text-gray-700">{libItem.name}</span>
+                                                <button type="button" onClick={() => removeExercise(day, exId)} className="text-gray-300 hover:text-red-500 group-hover:opacity-100 transition-opacity">×</button>
+                                            </div>
+                                        ) : null;
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Library to add from */}
+                    <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm">
+                        <h3 className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-4">Click to Add {planType === 'diet' ? 'Foods' : 'Exercises'}</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {activeLibrary.map(item => (
+                                <div
+                                    key={item.id}
+                                    className="border border-gray-100 p-3 rounded-lg hover:border-primary cursor-pointer transition-colors"
+                                    onClick={() => {
+                                        // Just add to first day or provide a way to choose. 
+                                        // For simplicity, let's just make it possible to click to add to active week view or some selection.
+                                        // Let's assume we add to all days or we need to select day.
+                                        // Simpler: provide a small dropdown or just add to Monday by default for demo.
+                                        // Actually, let's keep it simple: the user must drag (just kidding, we'll use a selection)
+                                    }}
+                                >
+                                    <p className="text-xs font-bold text-gray-800">{item.name}</p>
+                                    <p className="text-[9px] text-gray-400 mb-2 truncate">{item.desc}</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {DAYS.map(d => (
+                                            <button
+                                                key={d}
+                                                type="button"
+                                                className="text-[8px] bg-gray-50 hover:bg-primary hover:text-white px-1 py-0.5 rounded border border-gray-100"
+                                                onClick={(e) => { e.stopPropagation(); addExercise(d, item.id); }}
+                                            >
+                                                {d.slice(0, 3)}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
-
-                                {planType === 'diet' && (
-                                    <div className="p-4 bg-purple-50 rounded-2xl border-2 border-purple-100 animate-in slide-in-from-top-4">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <span className="text-lg">✨</span>
-                                            <h5 className="text-[10px] font-black uppercase tracking-widest text-purple-600">AI Diagnostic Engine</h5>
-                                        </div>
-                                        <button type="button" onClick={generateAIDiet} disabled={generating}
-                                            className="w-full py-3 bg-purple-600 text-white font-black uppercase tracking-widest text-[8px] rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all">
-                                            {generating ? 'Engine Syncing…' : 'Generate AI Diet Suggestion'}
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Clinical Directives</label>
-                                    <textarea className="form-control py-4 px-6 rounded-2xl bg-gray-50 border-gray-50 font-medium shadow-inner" rows={4}
-                                        placeholder="Enter specialized instructions or constraints for this patient…"
-                                        value={instructions} onChange={e => setInstructions(e.target.value)} />
-                                </div>
-
-                                <button type="submit" className="w-full py-5 bg-gray-900 hover:bg-black text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-2xl transition-all flex items-center justify-center gap-4 group" disabled={loading}>
-                                    {loading ? 'Processing…' : 'Finalize Assignment →'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Timeline */}
-                    <div className="space-y-6">
-                        {/* Day Selector */}
-                        <div className="flex bg-white p-2 rounded-[28px] shadow-xl border border-gray-50 gap-2">
-                            {DAYS.map(day => (
-                                <button key={day} type="button" onClick={() => setActiveDay(day)}
-                                    className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all ${activeDay === day ? 'bg-teal-600 text-white shadow-xl shadow-teal-100' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                    {day.slice(0, 3)}
-                                    <div className={`text-[8px] mt-1 ${activeDay === day ? 'text-white/50' : 'text-gray-300'}`}>{(dayExercises[day] || []).length} items</div>
-                                </button>
                             ))}
-                        </div>
-
-                        <div className="grid grid-cols-[1fr_380px] gap-8 items-start">
-                            {/* Focused Day View */}
-                            <div className="card shadow-2xl border-0 bg-white overflow-hidden min-h-[600px] flex flex-col">
-                                <div className="p-8 bg-gray-900 flex items-center justify-between">
-                                    <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">{activeDay} Focus</h3>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-teal-400 bg-teal-400/10 px-4 py-1 rounded-full">Active Editor</span>
-                                </div>
-
-                                <div className="p-10 flex-1 bg-gray-50/30"
-                                    onDragOver={e => e.preventDefault()}
-                                    onDrop={() => { if (dragEx) { addExercise(activeDay, dragEx); setDragEx(null); } }}>
-
-                                    {(dayExercises[activeDay] || []).length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center py-40 opacity-20 border-4 border-dashed border-gray-200 rounded-[40px] m-4">
-                                            <div className="text-6xl mb-6">➕</div>
-                                            <h4 className="text-xl font-black uppercase tracking-widest text-gray-400">Add {planType} targets</h4>
-                                            <p className="text-xs font-medium italic mt-2">Drag from library or click suggest</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 gap-4">
-                                            {(dayExercises[activeDay] || []).map((exId, i) => {
-                                                const ex = activeLibrary.find(e => e.id === exId);
-                                                return ex ? (
-                                                    <div key={`${exId}_${i}`} className="bg-white rounded-3xl p-6 shadow-xl shadow-gray-200/50 border border-gray-100 flex items-center justify-between group animate-in slide-in-from-right-4">
-                                                        <div className="flex items-center gap-6">
-                                                            <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-black">{i + 1}</div>
-                                                            <div>
-                                                                <h5 className="font-black text-gray-900 uppercase tracking-tight">{ex.name}</h5>
-                                                                <p className="text-[10px] text-gray-400 font-medium">{ex.cat} · {ex.dur || 'Daily'}</p>
-                                                            </div>
-                                                        </div>
-                                                        <button type="button" onClick={() => removeExercise(activeDay, exId)}
-                                                            className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">✕</button>
-                                                    </div>
-                                                ) : null;
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Sticky Library */}
-                            <div className="card shadow-xl border-0 overflow-hidden bg-white sticky top-24">
-                                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                                    <h3 className="font-black uppercase tracking-widest text-[10px] text-gray-500">Target Library</h3>
-                                    <span className="text-[8px] font-black uppercase text-teal-600">Quick-Add</span>
-                                </div>
-                                <div className="p-6 max-h-[600px] overflow-y-auto space-y-3">
-                                    {activeLibrary.map(ex => (
-                                        <div key={ex.id}
-                                            draggable
-                                            onDragStart={() => setDragEx(ex.id)}
-                                            onClick={() => { addExercise(activeDay, ex.id); }}
-                                            className={`p-4 rounded-2xl cursor-pointer transition-all border-2 group bg-gray-50/50 border-transparent hover:border-teal-600 hover:bg-white`}>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="font-black text-xs uppercase tracking-tight text-gray-900">{ex.name}</span>
-                                                <span className="text-[8px] font-black uppercase tracking-widest bg-white px-2 py-0.5 rounded-full text-gray-400 group-hover:text-teal-600 transition-all">{ex.cat}</span>
-                                            </div>
-                                            <p className="text-[9px] font-medium text-gray-400 italic mt-1 leading-tight">{ex.desc}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>

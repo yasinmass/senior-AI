@@ -128,3 +128,69 @@ export async function assignClinicalPlan(data) {
     });
     return res.json();
 }
+
+// MOCA Assessment
+export async function saveMOCA(data) {
+    const res = await apiFetch('/moca/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+}
+
+export async function getLatestMOCA() {
+    const res = await apiFetch('/moca/latest/');
+    return res.json();
+}
+
+export async function getMOCAHistory() {
+    const res = await apiFetch('/moca/history/');
+    return res.json();
+}
+
+export async function getDoctors() {
+    const res = await apiFetch('/doctors/');
+    return res.json();
+}
+
+export async function setDoctor(doctorId) {
+    const res = await apiFetch('/patient/set-doctor/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doctor_id: doctorId }),
+    });
+    return res.json();
+}
+
+export async function recordTaskCompletion(planId, taskId, notes = '') {
+    const res = await apiFetch('/clinical/complete-task/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId, task_id: taskId, notes }),
+    });
+    return res.json();
+}
+
+export async function addPatientByEmail(email) {
+    const res = await apiFetch('/doctor/add-patient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+    return res.json();
+}
+
+export async function getDoctorCompletions() {
+    const res = await apiFetch('/doctor/completions');
+    return res.json();
+}
+export async function ingestPatientPDF(file) {
+    const formData = new FormData();
+    formData.append('report', file);
+    const res = await apiFetch('/doctor/extract-patient', {
+        method: 'POST',
+        body: formData,
+    });
+    return res.json();
+}

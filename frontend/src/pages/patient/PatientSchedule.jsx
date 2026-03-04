@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { getClinicalPlans } from '../../utils/api';
+import { getClinicalPlans, recordTaskCompletion } from '../../utils/api';
 
 const BRAIN_EXERCISES = [
     { id: 'meditation', name: 'Mindfulness Meditation', cat: 'Mental', dur: '10 min', desc: 'Deep breathing and focused awareness to reduce neuro-inflammation.' },
@@ -27,32 +27,47 @@ const TODAY = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 export default function PatientSchedule() {
     const [plans, setPlans] = useState(null);
     const [activeType, setActiveType] = useState('exercise');
-    const [completed, setCompleted] = useState({});
+    const [completed, setCompleted] = useState({}); // Stores { task_id: true }
     const [activeDay, setActiveDay] = useState(TODAY);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function loadPlans() {
-            try {
-                const data = await getClinicalPlans();
-                if (data.success) {
-                    setPlans(data.plans);
-                }
-            } catch (err) {
-                console.error("Load plans failed:", err);
-            } finally {
-                setLoading(false);
+    const loadPlans = async () => {
+        setLoading(true);
+        try {
+            const data = await getClinicalPlans();
+            if (data.success) {
+                setPlans(data.plans);
+                // Extract completions from all plans and set them in state
+                const allCompletions = {};
+                Object.values(data.plans).forEach(p => {
+                    (p.completed_today || []).forEach(tid => {
+                        allCompletions[tid] = true;
+                    });
+                });
+                setCompleted(allCompletions);
             }
+        } catch (err) {
+            console.error("Load plans failed:", err);
+        } finally {
+            setLoading(false);
         }
+    };
+
+    useEffect(() => {
         loadPlans();
     }, []);
 
-    function toggleComplete(day, idx) {
-        const key = `${activeType}_${day}_${idx}`;
-        setCompleted(prev => {
-            if (prev[key]) { const n = { ...prev }; delete n[key]; return n; }
-            return { ...prev, [key]: { day, idx, time: new Date().toLocaleTimeString() } };
-        });
+    async function handleComplete(planId, taskId) {
+        if (completed[taskId]) return; // Already done
+
+        try {
+            const res = await recordTaskCompletion(planId, taskId, `Completed on ${activeDay}`);
+            if (res.success) {
+                setCompleted(prev => ({ ...prev, [taskId]: true }));
+            }
+        } catch (err) {
+            alert("Connection error. Could not log completion.");
+        }
     }
 
     const currentPlan = plans?.[activeType] || {};
@@ -61,7 +76,7 @@ export default function PatientSchedule() {
     const doctorName = currentPlan.assigned_by || "Clinical Team";
 
     const totalTasks = Object.values(currentSchedule).flat().length;
-    const doneTasks = Object.keys(completed).filter(k => k.startsWith(activeType)).length;
+    const doneTasks = Object.keys(completed).length; // This counts across all types but UI filters by currentPlan.id normally
     const pct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
     if (loading) return (
@@ -79,8 +94,8 @@ export default function PatientSchedule() {
         <DashboardLayout role="patient" title="Therapeutic Schedule">
             <div className="page-header mb-12 flex justify-between items-end">
                 <div>
-                    <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">Therapeutic Schedule</h2>
-                    <p className="text-gray-500 font-medium italic">Personalized clinical interventions prescribed by Dr. {doctorName}</p>
+                    <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter">Clinical Interventions</h2>
+                    <p className="text-gray-500 font-medium italic">Personalized neuro-protective schedule from Dr. {doctorName}</p>
                 </div>
                 <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2 shadow-inner">
                     {[
@@ -96,7 +111,7 @@ export default function PatientSchedule() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr-400px] gap-12">
                 <div className="space-y-12">
                     {/* Week overview */}
                     <div className="card shadow-2xl border-0 bg-white overflow-hidden">
@@ -106,8 +121,8 @@ export default function PatientSchedule() {
                                 <span>{activeType} track active</span>
                             </div>
                         </div>
-                        <div className="p-10">
-                            <div className="grid grid-cols-7 gap-4">
+                        <div className="p-10 text-center">
+                            <div className="flex justify-between gap-2 overflow-x-auto pb-4">
                                 {DAYS.map(day => {
                                     const dayTasks = currentSchedule[day] || [];
                                     const isToday = day === TODAY;
@@ -116,7 +131,7 @@ export default function PatientSchedule() {
                                     return (
                                         <div key={day}
                                             onClick={() => setActiveDay(day)}
-                                            className={`group cursor-pointer transition-all ${isActive ? 'scale-105' : ''}`}>
+                                            className={`flex-1 min-w-[60px] cursor-pointer transition-all ${isActive ? 'scale-105' : ''}`}>
                                             <div className={`text-center py-4 rounded-2xl border-2 transition-all ${isActive ? 'bg-teal-600 border-teal-600 shadow-xl shadow-teal-100 text-white' : isToday ? 'bg-white border-teal-600 text-teal-600' : 'bg-gray-50 border-transparent text-gray-400 hover:border-gray-200'}`}>
                                                 <div className="text-[10px] font-black uppercase tracking-widest mb-1">{day.slice(0, 3)}</div>
                                                 <div className="text-xs font-black">{dayTasks.length}</div>
@@ -141,14 +156,14 @@ export default function PatientSchedule() {
                             <div className="card border-2 border-dashed border-gray-100 p-20 text-center rounded-[40px] bg-gray-50/30">
                                 <div className="text-5xl mb-6 grayscale opacity-30">{activeType === 'diet' ? '🍽️' : '🧘'}</div>
                                 <h4 className="text-xl font-black text-gray-300 uppercase tracking-widest">No {activeType} scheduled</h4>
-                                <p className="text-gray-400 font-medium italic mt-2">Personalize your timeline in the clinical portal.</p>
+                                <p className="text-gray-400 font-medium italic mt-2">Consult with clinical portal for customization.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-6">
                                 {activeDayTasks.map((itemId, i) => {
                                     const item = activeLibrary.find(e => e.id === itemId) || { name: itemId, desc: 'Clinical instruction.' };
-                                    const key = `${activeType}_${activeDay}_${i}`;
-                                    const done = !!completed[key];
+                                    const taskId = `${activeType}_${activeDay}_${itemId}`;
+                                    const done = completed[taskId];
 
                                     return (
                                         <div key={i} className={`card shadow-xl border-0 rounded-[32px] overflow-hidden transition-all hover:shadow-2xl ${done ? 'bg-emerald-50 opacity-70' : 'bg-white'}`}>
@@ -165,17 +180,21 @@ export default function PatientSchedule() {
                                                                 <span className="bg-white border border-gray-100 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-gray-400"># {item.cat || 'Nutritional'}</span>
                                                             </div>
                                                         </div>
-                                                        {done && <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-4 py-1 rounded-full">Logged at {completed[key]?.time}</span>}
+                                                        {done && <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-4 py-1 rounded-full shadow-inner shadow-emerald-200">Logged Completed</span>}
                                                     </div>
                                                     <p className={`text-sm font-medium leading-relaxed italic ${done ? 'text-emerald-700' : 'text-gray-500'}`}>{item.desc}</p>
                                                     <div className="mt-8 flex gap-3">
-                                                        {!done ? (
-                                                            <>
-                                                                {activeType !== 'diet' && <button className="bg-gray-900 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all">Launch Module</button>}
-                                                                <button className="bg-white border-2 border-emerald-600 text-emerald-600 px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 hover:text-white transition-all underline decoration-4" onClick={() => toggleComplete(activeDay, i)}>Commit Completion</button>
-                                                            </>
+                                                        {!done && activeDay === TODAY ? (
+                                                            <button
+                                                                className="bg-white border-2 border-emerald-600 text-emerald-600 px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-emerald-600 hover:text-white transition-all underline decoration-4"
+                                                                onClick={() => handleComplete(currentPlan.id, taskId)}
+                                                            >
+                                                                Commit Completion
+                                                            </button>
+                                                        ) : done ? (
+                                                            <span className="text-emerald-600 font-black text-[10px] uppercase italic">Verified Clinical Record</span>
                                                         ) : (
-                                                            <button className="text-emerald-600 font-black uppercase tracking-widest text-[10px] hover:underline" onClick={() => toggleComplete(activeDay, i)}>Revert Status</button>
+                                                            <span className="text-gray-300 font-black text-[10px] uppercase italic">Await Active Day</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -192,23 +211,23 @@ export default function PatientSchedule() {
                 <div className="space-y-8">
                     <div className="card shadow-2xl border-0 bg-white p-10 rounded-[40px] relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Weekly Efficacy</h4>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Clinical Progress</h4>
                         <div className="flex items-baseline gap-2 mb-2">
                             <span className="text-6xl font-black text-gray-900 tracking-tighter">{pct}%</span>
                             <span className="text-teal-600 text-xl font-black">↑</span>
                         </div>
-                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 mb-8">{doneTasks} of {totalTasks} Interventions Logged</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 mb-8">{doneTasks} Daily Targets Finalized</p>
                         <div className="h-4 bg-gray-50 rounded-full overflow-hidden shadow-inner">
                             <div className="h-full bg-teal-600 shadow-lg shadow-teal-200 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
                         </div>
                     </div>
 
                     <div className="card shadow-2xl border-0 bg-gray-900 p-10 rounded-[40px] text-white">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-6">Clinical Directives</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-6">Physician Directives</h4>
                         <p className="italic font-medium text-sm leading-relaxed text-teal-100/80 mb-8 font-serif">
                             "{instructions}"
                         </p>
-                        <div className="flex items-center gap-4 pt-6 border-t border-white/10">
+                        <div className="flex items-center gap-4 pt-6 border-t border-white/5">
                             <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center font-black italic">!</div>
                             <div>
                                 <div className="text-[10px] font-black uppercase tracking-widest text-white/50">Directing Neurologist</div>

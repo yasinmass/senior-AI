@@ -13,18 +13,16 @@ export default function Sidebar({ role, isOpen, onClose }) {
     const name = (role === 'doctor' ? sessionStorage.getItem('doctor_name') : sessionStorage.getItem('patient_name')) || 'User';
 
     const patientLinks = [
-        { to: '/patient', label: 'Dashboard', icon: '📊' },
+        { to: '/patient/schedule', label: 'Home', icon: '🏠' },
         { to: '/patient/test', label: 'AI Screening', icon: '🧠' },
         { to: '/patient/results', label: 'My Reports', icon: '📜' },
-        { to: '/patient/schedule', label: 'Exercises', icon: '🧘' },
-        { to: '/patient/notifications', label: 'Notifications', icon: '🔔', badge: 2 },
+        { to: '/patient/notifications', label: 'Messages', icon: '💬' },
     ];
 
     const doctorLinks = [
         { to: '/doctor', label: 'Overview', icon: '🏛️' },
         { to: '/doctor/patients', label: 'Patients Registry', icon: '👥' },
         { to: '/doctor/schedule', label: 'Schedule Targets', icon: '📅' },
-        { to: '/doctor/completions', label: 'Clinical Tracking', icon: '✅' },
     ];
 
     const links = role === 'doctor' ? doctorLinks : patientLinks;

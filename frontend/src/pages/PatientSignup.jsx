@@ -20,6 +20,7 @@ export default function PatientSignup() {
             if (data.success) {
                 sessionStorage.setItem('patient_id', data.patient.id);
                 sessionStorage.setItem('patient_name', data.patient.name);
+                sessionStorage.setItem('patient_email', data.patient.email);
                 sessionStorage.setItem('role', 'patient');
                 navigate('/patient');
             } else {
@@ -32,71 +33,78 @@ export default function PatientSignup() {
 
     return (
         <div className="auth-page px-6">
-            <div className="w-full max-w-lg mb-20 fade-in">
-                <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                    <div className="flex items-center gap-3 justify-center mb-8">
-                        <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-100">
-                            <svg width={24} height={24} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                        </div>
-                        <span className="text-2xl font-black text-gray-900 tracking-tighter">NeuroScan AI</span>
+            <div className="fade-in w-full max-w-[540px]">
+                {/* Logo Section */}
+                <div className="flex flex-col items-center gap-4 mb-8">
+                    <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
+                        <svg width={32} height={32} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
                     </div>
-                    <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter mb-4">Patient Enrollment</h2>
-                    <p className="text-gray-500 font-medium">Create your secure cognitive health profile.</p>
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-white">NeuroScan <span className="text-primary-pale">AI</span></h1>
+                        <p className="text-xs font-semibold text-primary/60 uppercase tracking-widest mt-1">Join the Registry</p>
+                    </div>
                 </div>
 
-                <div className="auth-card p-10 shadow-2xl border-0 overflow-hidden bg-white/80 backdrop-blur-xl rounded-[40px] border border-white/40">
+                <div className="auth-card">
+                    <div className="mb-8 text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
+                        <p className="text-sm text-gray-400">Join our clinical monitoring platform</p>
+                    </div>
+
                     {error && (
-                        <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-2xl text-sm font-bold mb-8 flex gap-3 items-center">
-                            <span>❌</span> {error}
+                        <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 mb-6 animate-in shake">
+                            <span className="text-red-500 text-lg">⚠️</span>
+                            <p className="text-xs font-bold text-red-800">{error}</p>
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Full Name</label>
-                                <input type="text" name="name" className="form-control" placeholder="John Doe" required value={formData.name} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Full Name</label>
+                                <input type="text" name="name" className="w-full bg-gray-50 border border-gray-100 focus:border-primary focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="John Doe" required value={formData.name} onChange={handleChange} />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Email ID</label>
-                                <input type="email" name="email" className="form-control" placeholder="john@example.com" required value={formData.email} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Email Address</label>
+                                <input type="email" name="email" className="w-full bg-gray-50 border border-gray-100 focus:border-primary focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="john@example.com" required value={formData.email} onChange={handleChange} />
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Secure Password</label>
-                            <input type="password" name="password" className="form-control" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 ml-1">Password</label>
+                            <input type="password" name="password" className="w-full bg-gray-50 border border-gray-100 focus:border-primary focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Age (Years)</label>
-                                <input type="number" name="age" className="form-control" placeholder="72" value={formData.age} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Current Age</label>
+                                <input type="number" name="age" className="w-full bg-gray-50 border border-gray-100 focus:border-primary focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="72" value={formData.age} onChange={handleChange} />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Mobile Phone</label>
-                                <input type="text" name="phone" className="form-control" placeholder="+1 234 567 890" value={formData.phone} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Phone Number</label>
+                                <input type="text" name="phone" className="w-full bg-gray-50 border border-gray-100 focus:border-primary focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="+1 234 567 890" value={formData.phone} onChange={handleChange} />
                             </div>
                         </div>
 
-                        <button type="submit" className="btn btn-primary btn-lg w-full py-5 rounded-2xl shadow-xl shadow-teal-100 font-extrabold uppercase tracking-widest text-sm" disabled={loading}>
-                            {loading ? <span className="spin">⟳</span> : null}
-                            {loading ? ' Processing Enrollment…' : 'Create Patient Profile →'}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? "Creating Profile..." : "Complete Registration"}
                         </button>
                     </form>
 
-                    <div className="text-center mt-10">
-                        <p className="text-gray-500 font-medium">Already have a profile? <Link to="/login/patient" className="text-teal-600 font-black underline underline-offset-4 decoration-2 decoration-teal-100">Patient Sign In</Link></p>
-                    </div>
-
-                    <div className="mt-6 text-center">
-                        <Link to="/signup/doctor" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-teal-600 transition-colors">
-                            Professional Access Portal →
-                        </Link>
+                    <div className="mt-8 pt-6 border-t border-gray-50 text-center space-y-4">
+                        <p className="text-sm text-gray-400">
+                            Already registered? <Link to="/login/patient" className="text-primary font-bold hover:underline">Sign In</Link>
+                        </p>
                     </div>
                 </div>
+
+                <p className="mt-8 text-center text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Patient Privacy Protected</p>
             </div>
         </div>
     );

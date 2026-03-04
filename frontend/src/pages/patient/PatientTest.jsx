@@ -5,6 +5,7 @@ import { blobToWavBlob } from '../../utils/audioUtils';
 import { apiFetch } from '../../utils/api';
 import { t, getQuestions } from '../../utils/i18n';
 import { getFinalOutput, startReactionTimer, stopReactionTimer, getAverageReactionTime, resetReactionTimer } from '../../utils/scoring';
+import MOCATest from './MOCATest';
 
 const CIRCUMFERENCE = 2 * Math.PI * 54;
 const MAX_DURATION = 60;
@@ -242,7 +243,7 @@ function VoicePhase({ onDone }) {
                     </button>
                     <button className="btn btn-secondary" disabled={!nextEnabled} onClick={onDone}
                         style={{ opacity: nextEnabled ? 1 : .5, cursor: nextEnabled ? 'pointer' : 'not-allowed' }}>
-                        Next: Quiz →
+                        Order: Quiz →
                     </button>
                 </div>
             </div>
@@ -375,99 +376,253 @@ function ResultPhase() {
     if (loading) return (
         <div style={{ textAlign: 'center', padding: 48 }}>
             <div className="loader-ring" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--gray-400)' }}>Loading results…</p>
+            <p style={{ color: 'var(--gray-400)' }}>Finalizing results…</p>
         </div>
     );
 
     if (!assessment) return (
-        <div className="card" style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center', padding: 40 }}>
-            <p style={{ color: 'var(--gray-500)' }}>No assessment found.</p>
+        <div className="card shadow-2xl border-0 p-20 text-center bg-white rounded-[40px]">
+            <p style={{ color: 'var(--gray-500)' }}>Assessment summary not available.</p>
         </div>
     );
 
-    const { final_risk_level: risk, total_score, ml_prediction, ml_dementia_probability, orientation_score, memory_score, executive_score, created_at } = assessment;
-    const riskConfig = {
-        Low: { cls: 'result-card-low', icon: '✅', color: 'var(--success)', text: 'Low Risk — Normal Cognitive Function', desc: 'Your cognitive assessment shows no significant indicators of dementia. Continue healthy habits and schedule regular check-ups.' },
-        Moderate: { cls: 'result-card-mod', icon: '⚠️', color: 'var(--warning)', text: 'Moderate Risk — Monitor Closely', desc: 'Some indicators suggest closer monitoring is needed. We recommend a follow-up consultation with your doctor within 2 weeks.' },
-        High: { cls: 'result-card-high', icon: '🔴', color: 'var(--danger)', text: 'High Risk — Immediate Consultation', desc: 'Your results indicate elevated dementia markers. Please contact your doctor immediately for a comprehensive evaluation.' },
+    const { total_score, ml_prediction, ml_dementia_probability, orientation_score, memory_score, executive_score, created_at } = assessment;
+
+    const pct = Math.round((total_score / 30) * 100);
+    const getClassification = () => {
+        if (pct >= 85) return {
+            text: 'No Dementia Detected',
+            color: '#059669',
+            icon: '✅',
+            desc: 'Your cognitive health is excellent (above 85%). No significant markers detected at this time.',
+            badge: 'NORMAL'
+        };
+        if (pct >= 40) return {
+            text: 'Moderate Cognitive Concern',
+            color: '#D97706',
+            icon: '⚠️',
+            desc: 'Moderate cognitive concerns detected (40-85%). We recommend a clinical follow-up for monitoring.',
+            badge: 'MODERATE'
+        };
+        return {
+            text: 'Significant Clinical Flag',
+            color: '#DC2626',
+            icon: '🚨',
+            desc: 'Romba demtasis iruku doctgor poarunga (below 40%). Professional medical evaluation is urgently required.',
+            badge: 'SEE DOCTOR'
+        };
     };
-    const rc = riskConfig[risk] || riskConfig.Low;
+
+    const c = getClassification();
 
     return (
-        <div style={{ maxWidth: 620, margin: '0 auto' }}>
-            {/* Main result */}
-            <div className={`card ${rc.cls}`} style={{ borderRadius: 'var(--radius-lg)', padding: 32, textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 52, marginBottom: 12 }}>{rc.icon}</div>
-                <span className={`badge ${risk === 'Low' ? 'badge-low' : risk === 'Moderate' ? 'badge-moderate' : 'badge-high'}`} style={{ fontSize: 13, padding: '6px 16px', marginBottom: 12 }}>Dementia Risk: {risk}</span>
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: rc.color, marginBottom: 8 }}>{rc.text}</h3>
-                <p style={{ fontSize: 14, color: 'var(--gray-600)', lineHeight: 1.7, marginBottom: 16 }}>{rc.desc}</p>
-                <div style={{ background: 'rgba(255,255,255,.6)', borderRadius: 'var(--radius-sm)', padding: '10px 20px', display: 'inline-block' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-700)' }}>ML Voice Analysis: </span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: ml_prediction === 'dementia' ? 'var(--danger)' : 'var(--success)' }}>
-                        {ml_prediction === 'dementia' ? `⚠ Positive (${ml_dementia_probability}%)` : '✔ Normal Pattern'}
-                    </span>
-                </div>
-            </div>
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div className="card shadow-2xl border-0 bg-white overflow-hidden rounded-[40px] mb-8">
+                <div style={{ background: `linear-gradient(135deg, ${c.color}, #000)` }} className="p-12 text-center text-white">
+                    <div className="text-7xl mb-6">{c.icon}</div>
+                    <div className="inline-block bg-white/20 px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-white/10">{c.badge}</div>
+                    <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">{c.text}</h2>
+                    <p className="text-lg font-serif italic text-white/70 max-w-lg mx-auto leading-relaxed mb-8">"{c.desc}"</p>
 
-            {/* Score breakdown */}
-            <div className="card" style={{ marginBottom: 20, padding: 24 }}>
-                <h4 style={{ fontWeight: 700, marginBottom: 16, color: 'var(--gray-700)' }}>Score Breakdown</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
-                    {[
-                        { label: 'Orientation', score: orientation_score, max: 10, color: 'var(--primary)' },
-                        { label: 'Memory', score: memory_score, max: 10, color: 'var(--accent)' },
-                        { label: 'Executive', score: executive_score, max: 10, color: 'var(--teal)' },
-                    ].map(s => (
-                        <div key={s.label} style={{ background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-                            <div style={{ fontSize: 24, fontWeight: 900, color: s.color }}>{s.score}</div>
-                            <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>/ {s.max}</div>
-                            <div className="progress" style={{ marginTop: 8 }}><div className="progress-bar blue" style={{ width: `${(s.score / s.max) * 100}%`, background: s.color }} /></div>
+                    <div className="inline-flex items-baseline gap-4 bg-black/20 p-8 rounded-[32px] border border-white/5">
+                        <span className="text-8xl font-black tracking-tighter">{pct}%</span>
+                        <div className="text-left">
+                            <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Diagnostic Score</div>
+                            <div className="text-xl font-black">{total_score}<span className="opacity-50 text-sm">/30</span></div>
                         </div>
-                    ))}
+                    </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--primary-light)', borderRadius: 'var(--radius-sm)', padding: '12px 16px' }}>
-                    <span style={{ fontWeight: 700, color: 'var(--primary)' }}>Total Cognitive Score</span>
-                    <span style={{ fontWeight: 900, fontSize: 22, color: 'var(--primary)' }}>{total_score} / 30</span>
-                </div>
-            </div>
 
-            {/* Confirmation */}
-            <div className="card" style={{ padding: 20, background: 'var(--success-light)', border: '2px solid #6EE7B7', marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 24 }}>📤</span>
-                    <div>
-                        <p style={{ fontWeight: 700, color: '#065F46' }}>Report Sent to Doctor</p>
-                        <p style={{ fontSize: 13, color: '#047857' }}>Your results have been automatically shared with your healthcare provider. Assessment date: {created_at}</p>
+                <div className="p-12">
+                    <div className="grid grid-cols-3 gap-6 mb-10">
+                        {[
+                            { label: 'Orientation', score: orientation_score, color: 'var(--primary)' },
+                            { label: 'Memory', score: memory_score, color: 'var(--accent)' },
+                            { label: 'Executive', score: executive_score, color: 'var(--teal)' },
+                        ].map(s => (
+                            <div key={s.label} className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">{s.label}</div>
+                                <div className="text-2xl font-black" style={{ color: s.color }}>{s.score}<span className="text-xs opacity-30 ml-1">/10</span></div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="bg-emerald-50 p-6 rounded-2xl flex items-center gap-4 border border-emerald-100 mb-10">
+                        <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black">✓</div>
+                        <p className="text-sm font-bold text-emerald-800">Your secure clinical report has been automatically synchronized with your medical portal.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <button className="btn btn-primary py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-900/10" onClick={() => navigate('/patient/results')}>
+                            View Technical Report →
+                        </button>
+                        <button className="btn bg-gray-100 hover:bg-gray-200 text-gray-600 py-5 rounded-2xl font-black uppercase text-xs tracking-widest" onClick={() => window.location.reload()}>
+                            Take Another Test
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <button className="btn btn-outline btn-lg" onClick={() => window.location.reload()}>Take Another Test</button>
-                <button className="btn btn-primary btn-lg" onClick={() => window.location.href = '/patient'}>Back to Dashboard</button>
-            </div>
+            <button className="w-full text-center text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-gray-600 transition-all" onClick={() => navigate('/patient')}>
+                Return to Dashboard
+            </button>
         </div>
     );
 }
 
-// ── Main Test Page ────────────────────────────────────────────────────────────
-export default function PatientTest() {
-    const [step, setStep] = useState(0); // 0=voice, 1=quiz, 2=result
+// ── Exam Selection Hub ─────────────────────────────────────────────────────────
+function ExamHub({ onStart }) {
+    const voiceDone = !!sessionStorage.getItem('voice_exam_done');
+    const mmseDone = !!sessionStorage.getItem('mmse_exam_done');
+    const mocaDone = !!sessionStorage.getItem('moca_exam_done');
+    const mocaScore = sessionStorage.getItem('moca_score');
+    const completedCount = [voiceDone, mmseDone, mocaDone].filter(Boolean).length;
+
+    const exams = [
+        {
+            key: 'voice', icon: '🎙', title: 'Voice Test', marks: 40,
+            borderColor: '#2563EB', done: voiceDone,
+            scoreText: voiceDone ? '40 / 40' : null,
+            desc: 'Record your voice for 10–60 seconds. AI analyzes pause patterns, speech rate, and vocal biomarkers.',
+            steps: ['Find a quiet room', 'Press Start and speak naturally', 'Talk about your day or read the prompt'],
+        },
+        {
+            key: 'mmse', icon: '🧠', title: 'MMSE Questionnaire', marks: 30,
+            borderColor: '#0EA5E9', done: mmseDone,
+            scoreText: mmseDone ? '30 marks done' : null,
+            desc: 'Answer questions about orientation, memory, and executive function. Multiple-choice, ~5 minutes.',
+            steps: ['No preparation needed', 'Answer each question honestly', 'Results analyzed instantly'],
+        },
+        {
+            key: 'moca', icon: '📋', title: 'MOCA Test', marks: 30,
+            borderColor: '#0D9488', done: mocaDone,
+            scoreText: mocaDone && mocaScore ? `${mocaScore} / 30` : null,
+            desc: 'Montreal Cognitive Assessment: 10 interactive sections covering memory, attention, language, and more.',
+            steps: ['Allow microphone access', 'Complete each section in order', '5-minute delayed recall timer runs automatically'],
+        },
+    ];
 
     return (
-        <DashboardLayout role="patient" title="AI Dementia Test">
+        <div>
             <div className="page-header">
-                <h2>AI Dementia Screening Test</h2>
-                <p>Complete both the voice analysis and cognitive questionnaire for a comprehensive assessment</p>
+                <h2>AI Screening Tests</h2>
+                <p>Complete all 3 tests to get your full cognitive score out of 100</p>
             </div>
 
-            <Steps step={step} />
+            <div style={{ background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 10, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>Progress</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{completedCount} / 3 completed</span>
+                    </div>
+                    <div className="progress">
+                        <div className="progress-bar blue" style={{ width: `${(completedCount / 3) * 100}%` }} />
+                    </div>
+                </div>
+                {completedCount === 3 && (
+                    <span style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '4px 14px', borderRadius: 20, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>✓ All done!</span>
+                )}
+            </div>
 
-            <div className="fade-in" key={step}>
-                {step === 0 && <VoicePhase onDone={() => setStep(1)} />}
-                {step === 1 && <QuizPhase onDone={() => setStep(2)} />}
-                {step === 2 && <ResultPhase />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {exams.map(exam => (
+                    <div key={exam.key} style={{ background: '#fff', border: '1px solid var(--gray-200)', borderLeft: `4px solid ${exam.borderColor}`, borderRadius: 10, padding: 24 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 220 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 22 }}>{exam.icon}</span>
+                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>{exam.title}</h3>
+                                    <span style={{ fontSize: 12, color: 'var(--gray-400)', fontWeight: 600 }}>— {exam.marks} marks</span>
+                                    {exam.done && (
+                                        <span style={{ background: 'var(--success-light)', color: 'var(--success)', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                                            ✓ {exam.scoreText || 'Done'}
+                                        </span>
+                                    )}
+                                </div>
+                                <p style={{ fontSize: 13, color: 'var(--gray-500)', lineHeight: 1.6, marginBottom: 10 }}>{exam.desc}</p>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    {exam.steps.map((s, i) => (
+                                        <span key={i} style={{ fontSize: 11, background: 'var(--gray-100)', color: 'var(--gray-600)', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>
+                                            {i + 1}. {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ flexShrink: 0, paddingTop: 4 }}>
+                                <button className="btn btn-primary" style={{ background: exam.borderColor }} onClick={() => onStart(exam.key)}>
+                                    {exam.done ? '↻ Retake' : '▶ Start'} Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {completedCount === 3 && (
+                <div style={{ marginTop: 20, padding: 16, background: 'var(--success-light)', border: '1px solid #6EE7B7', borderRadius: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 24 }}>🎉</span>
+                        <div>
+                            <p style={{ fontWeight: 700, color: '#065F46' }}>All 3 tests complete!</p>
+                            <p style={{ fontSize: 13, color: '#047857' }}>View your full results in <a href="/patient/results" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>My Reports</a>.</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Main Patient Test Page ─────────────────────────────────────────────────────
+export default function PatientTest() {
+    const [mode, setMode] = useState('hub');
+
+    function back() { setMode('hub'); }
+
+    return (
+        <DashboardLayout role="patient" title="AI Screening">
+            <div className="fade-in" key={mode}>
+
+                {mode === 'hub' && <ExamHub onStart={setMode} />}
+
+                {mode === 'voice' && (
+                    <div>
+                        <div style={{ marginBottom: 16 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
+                        </div>
+                        <div className="page-header">
+                            <h2>Voice Test <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray-400)' }}>— 40 marks</span></h2>
+                            <p>Speak naturally for 10–60 seconds about your day or read the suggested prompt.</p>
+                        </div>
+                        <VoicePhase onDone={() => { sessionStorage.setItem('voice_exam_done', '1'); back(); }} />
+                    </div>
+                )}
+
+                {mode === 'mmse' && (
+                    <div>
+                        <div style={{ marginBottom: 16 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
+                        </div>
+                        <div className="page-header">
+                            <h2>MMSE Questionnaire <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray-400)' }}>— 30 marks</span></h2>
+                            <p>Answer questions about orientation, memory, and executive function.</p>
+                        </div>
+                        <QuizPhase onDone={() => { sessionStorage.setItem('mmse_exam_done', '1'); back(); }} />
+                    </div>
+                )}
+
+                {mode === 'moca' && (
+                    <div>
+                        <div style={{ marginBottom: 16 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
+                        </div>
+                        <MOCATest embedded onComplete={(score) => {
+                            sessionStorage.setItem('moca_exam_done', '1');
+                            sessionStorage.setItem('moca_score', String(score));
+                            back();
+                        }} />
+                    </div>
+                )}
             </div>
         </DashboardLayout>
     );

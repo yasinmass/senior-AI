@@ -21,6 +21,7 @@ export default function DoctorSignup() {
             if (data.success) {
                 sessionStorage.setItem('doctor_id', data.doctor.id);
                 sessionStorage.setItem('doctor_name', data.doctor.name);
+                sessionStorage.setItem('doctor_email', data.doctor.email);
                 sessionStorage.setItem('role', 'doctor');
                 navigate('/doctor');
             } else {
@@ -32,55 +33,59 @@ export default function DoctorSignup() {
     }
 
     return (
-        <div className="auth-page px-6 bg-gray-900 overflow-hidden relative">
-            <div className="absolute top-0 right-0 -z-0 w-[600px] h-[600px] bg-teal-600/10 blur-[150px] rounded-full" />
-
-            <div className="w-full max-w-lg mb-20 fade-in">
-                <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                    <div className="flex items-center gap-3 justify-center mb-8">
-                        <div className="w-12 h-12 bg-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-teal-100">
-                            <svg width={24} height={24} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                        </div>
-                        <span className="text-2xl font-black text-white tracking-tighter">NeuroScan AI</span>
+        <div className="auth-page px-6">
+            <div className="fade-in w-full max-w-[600px]">
+                {/* Logo Section */}
+                <div className="flex flex-col items-center gap-4 mb-8">
+                    <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-teal-900/50">
+                        <svg width={32} height={32} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
                     </div>
-                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-4">Professional Enrollment</h2>
-                    <p className="text-white/40 font-medium">Join our advanced cognitive screening network.</p>
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold tracking-tight text-white">NeuroScan <span className="text-teal-400">AI</span></h1>
+                        <p className="text-xs font-semibold text-teal-500/60 uppercase tracking-widest mt-1">Professional Enrollment</p>
+                    </div>
                 </div>
 
-                <div className="auth-card p-10 shadow-2xl border-0 overflow-hidden bg-white/80 backdrop-blur-xl rounded-[40px] border border-white/40">
+                <div className="auth-card">
+                    <div className="mb-8 text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Professional Profile</h2>
+                        <p className="text-sm text-gray-400">Register as a clinical specialist</p>
+                    </div>
+
                     {error && (
-                        <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-2xl text-sm font-bold mb-8 flex gap-3 items-center">
-                            <span>❌</span> {error}
+                        <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 mb-6 animate-in shake">
+                            <span className="text-red-500 text-lg">⚠️</span>
+                            <p className="text-xs font-bold text-red-800">{error}</p>
                         </div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Full Name</label>
-                                <input type="text" name="name" className="form-control" placeholder="Dr. John Doe" required value={formData.name} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Full Name</label>
+                                <input type="text" name="name" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="Dr. Jane Smith" required value={formData.name} onChange={handleChange} />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Clinician Email</label>
-                                <input type="email" name="email" className="form-control" placeholder="dr.john@example.com" required value={formData.email} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Work Email</label>
+                                <input type="email" name="email" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="dr@example.com" required value={formData.email} onChange={handleChange} />
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Secure Password</label>
-                            <input type="password" name="password" className="form-control" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 ml-1">Password</label>
+                            <input type="password" name="password" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Clinical Unit / Hospital</label>
-                                <input type="text" name="hospital" className="form-control" placeholder="Global Health AI Center" value={formData.hospital} onChange={handleChange} />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Hospital / Clinic</label>
+                                <input type="text" name="hospital" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="Name of institution" value={formData.hospital} onChange={handleChange} />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Medical Specialization</label>
-                                <select name="specialization" className="form-control" value={formData.specialization} onChange={handleChange}>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 ml-1">Specialization</label>
+                                <select name="specialization" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-bold transition-all outline-none appearance-none cursor-pointer" value={formData.specialization} onChange={handleChange}>
                                     <option value="Neurology">Neurology</option>
                                     <option value="Psychiatry">Psychiatry</option>
                                     <option value="Geriatrics">Geriatrics</option>
@@ -89,27 +94,28 @@ export default function DoctorSignup() {
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label uppercase tracking-widest text-[10px] font-black text-gray-400 mb-3 block">Professional License ID</label>
-                            <input type="text" name="license_number" className="form-control" placeholder="MC-8822-001" value={formData.license_number} onChange={handleChange} />
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 ml-1">Medical License Number</label>
+                            <input type="text" name="license_number" className="w-full bg-gray-50 border border-gray-100 focus:border-teal-500 focus:bg-white px-5 py-4 rounded-xl text-sm font-medium transition-all outline-none" placeholder="Ex: ML-12345" value={formData.license_number} onChange={handleChange} />
                         </div>
 
-                        <button type="submit" className="btn btn-primary btn-lg w-full py-5 rounded-2xl shadow-xl shadow-teal-100 font-extrabold uppercase tracking-widest text-sm" disabled={loading}>
-                            {loading ? <span className="spin">⟳</span> : null}
-                            {loading ? ' Processing Enrollment…' : 'Enroll as Medical Provider →'}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold text-sm shadow-xl shadow-black/20 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? "Registering..." : "Create Professional Account"}
                         </button>
                     </form>
 
-                    <div className="text-center mt-10">
-                        <p className="text-gray-500 font-medium italic">Already have a pro account? <Link to="/login/doctor" className="text-teal-600 font-black underline underline-offset-4 decoration-2 decoration-teal-100">Clinician Sign In</Link></p>
-                    </div>
-
-                    <div className="mt-6 text-center">
-                        <Link to="/signup/patient" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-primary transition-colors">
-                            Switch to Patient Portal →
-                        </Link>
+                    <div className="mt-8 pt-6 border-t border-gray-50 text-center space-y-4">
+                        <p className="text-sm text-gray-400">
+                            Already have an account? <Link to="/login/doctor" className="text-teal-600 font-bold hover:underline">Sign In</Link>
+                        </p>
                     </div>
                 </div>
+
+                <p className="mt-8 text-center text-[10px] font-bold text-white/20 uppercase tracking-[0.3em]">Institutional Verification Required</p>
             </div>
         </div>
     );

@@ -51,103 +51,91 @@ export default function DoctorOverview() {
     const highRiskShortlist = patients.filter(p => p.latest_assessment?.risk_level === 'High').slice(0, 4);
 
     return (
-        <DashboardLayout role="doctor" title="Doctor Dashboard">
+        <DashboardLayout role="doctor" title="Clinical Overview">
             {/* Welcome Banner */}
-            <div className="fade-in" style={{
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '32px 40px',
-                marginBottom: 32,
-                color: '#fff',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 20px 40px -10px rgba(15, 23, 42, 0.4)'
-            }}>
+            <div className="fade-in mb-8 p-8 border border-gray-200 bg-white rounded-lg shadow-sm flex justify-between items-center">
                 <div>
-                    <h5 className="text-sm font-bold opacity-60 uppercase tracking-widest mb-2">Internal Portal</h5>
-                    <h2 className="text-3xl font-black mb-2">Welcome Back, Dr. {docName} 👋</h2>
-                    <p className="text-white/60 font-medium">NeuroScan Clinical Network · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Clinical Portal</h5>
+                    <h2 className="text-2xl font-bold text-gray-800">Welcome, Dr. {docName}</h2>
+                    <p className="text-gray-500 text-sm font-medium">NeuroScan Systems · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
-                <div className="flex gap-4">
-                    <button className="btn" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 24px' }} onClick={() => navigate('/doctor/messages')}>
-                        💬 Clinical Chat
+                <div className="flex gap-3">
+                    <button className="px-5 py-2.5 bg-gray-50 text-gray-600 font-bold text-xs rounded border border-gray-200 hover:bg-gray-100 transition-colors" onClick={() => navigate('/doctor/messages')}>
+                        Clinical Messaging
                     </button>
-                    <button className="btn bg-teal-500 hover:bg-teal-400 text-white font-bold" style={{ padding: '12px 28px' }} onClick={() => navigate('/doctor/patients')}>
-                        Manage All Patients
+                    <button className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded shadow-sm hover:bg-blue-700 transition-colors" onClick={() => navigate('/doctor/patients')}>
+                        Clinical Registry
                     </button>
                 </div>
             </div>
 
             {/* Stat Cards */}
-            <div className="stats-grid">
+            <div className="grid grid-cols-4 gap-6 mb-8">
                 {statCards.map(s => (
-                    <div key={s.label} className="stat-card" style={{ borderTop: `4px solid ${s.color}` }}>
-                        <div className="stat-icon" style={{ background: s.bg, fontSize: 24 }}>{s.icon}</div>
-                        <div className="stat-value" style={{ color: s.color, fontSize: 36 }}>{s.value}</div>
-                        <div className="stat-label uppercase tracking-widest text-[10px] font-black">{s.label}</div>
-                        <div className="stat-change" style={{ color: 'var(--gray-400)', fontWeight: 600 }}>{s.change}</div>
+                    <div key={s.label} className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-xl">{s.icon}</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{s.label}</span>
+                        </div>
+                        <div className="text-3xl font-bold text-gray-800 mb-1">{s.value}</div>
+                        <div className="text-[10px] font-semibold text-gray-400 uppercase italic">{s.change}</div>
                     </div>
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 28 }}>
+            <div className="grid grid-cols-[1.2fr_1fr] gap-8">
                 {/* High risk patients */}
-                <div className="card shadow-xl border-0 overflow-hidden">
-                    <div className="card-header bg-gray-50/50 py-6 px-8 flex justify-between items-center border-b border-gray-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Immediate Attention Required</h3>
-                        </div>
-                        <span className="badge badge-high">{stats?.high_risk || 0} Critical</span>
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Patient Alerts</h3>
+                        <span className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded font-bold uppercase">{stats?.high_risk || 0} Critical Cases</span>
                     </div>
-                    <div className="card-body p-0">
+                    <div className="divide-y divide-gray-100">
                         {highRiskShortlist.length > 0 ? highRiskShortlist.map(p => (
-                            <div key={p.id} className="flex items-center gap-16 px-8 py-5 border-b border-gray-50 hover:bg-red-50/20 transition-all cursor-pointer group"
+                            <div key={p.id} className="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer group"
                                 onClick={() => navigate(`/doctor/patient/${p.id}`)}>
-                                <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center font-black text-lg group-hover:scale-110 transition-transform">
+                                <div className="w-10 h-10 rounded bg-red-50 text-red-600 flex items-center justify-center font-bold text-sm">
                                     {p.name[0]}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <p className="text-base font-bold text-gray-900 group-hover:text-red-700 transition-colors uppercase tracking-tight">{p.name}</p>
-                                    <p className="text-xs text-gray-400 font-semibold tracking-wide">
-                                        Score <b className="text-gray-900">{p.latest_assessment?.total_score}/30</b> · {p.latest_assessment?.created_at}
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-gray-800">{p.name}</p>
+                                    <p className="text-[11px] text-gray-400 font-medium">
+                                        Score: {p.latest_assessment?.total_score}/30 · {p.latest_assessment?.created_at}
                                     </p>
                                 </div>
                                 <div className="text-right">
                                     <RiskBadge level="High" />
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1 tracking-widest">{p.latest_assessment?.ml_prediction}</p>
                                 </div>
                             </div>
                         )) : (
-                            <div className="p-16 text-center text-gray-400 font-medium italic">
+                            <div className="p-12 text-center text-gray-400 text-sm italic">
                                 No high-risk alerts at this time.
                             </div>
                         )}
-                        <div className="p-6 bg-gray-50/30">
-                            <button className="btn btn-secondary w-full font-bold uppercase tracking-widest text-xs py-3" onClick={() => navigate('/doctor/patients')}>View Full Clinical Directory</button>
-                        </div>
+                    </div>
+                    <div className="p-4 bg-gray-50/30 border-t border-gray-200">
+                        <button className="w-full py-2.5 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-primary transition-colors" onClick={() => navigate('/doctor/patients')}>Open Clinical Directory</button>
                     </div>
                 </div>
 
-                {/* Quick News / Activity */}
-                <div className="card shadow-xl border-0 overflow-hidden">
-                    <div className="card-header bg-gray-50/50 py-6 px-8 border-b border-gray-100">
-                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Recent Clinical Activity</h3>
+                {/* Recent Activity */}
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200">
+                        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Registry Updates</h3>
                     </div>
-                    <div className="card-body px-8 py-2">
+                    <div className="p-4 space-y-4">
                         {patients.slice(0, 5).map((p, i) => (
-                            <div key={i} className="flex gap-4 py-8 border-b border-gray-50 last:border-0">
-                                <div className="mt-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-4 border-blue-100 shrink-0" />
+                            <div key={i} className="flex gap-3 text-xs">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
                                 <div>
-                                    <p className="text-sm font-bold text-gray-800 leading-tight mb-1">
+                                    <p className="font-semibold text-gray-700">
                                         {p.latest_assessment ? (
-                                            <>Assessment completed by <span className="text-teal-600">{p.name}</span>. Final Risk Level: <b className="bg-gray-100 px-2 py-0.5 rounded ml-1">{p.latest_assessment.risk_level}</b></>
+                                            <>Assessment: <span className="text-gray-900">{p.name}</span> ({p.latest_assessment.risk_level})</>
                                         ) : (
-                                            <>New patient registered in clinical directory: <span className="text-teal-600">{p.name}</span></>
+                                            <>New Enrollment: <span className="text-gray-900">{p.name}</span></>
                                         )}
                                     </p>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{p.created_at} · RECORD_ID_{p.id}</p>
+                                    <p className="text-[10px] text-gray-400 font-medium">{p.created_at}</p>
                                 </div>
                             </div>
                         ))}
@@ -156,57 +144,51 @@ export default function DoctorOverview() {
             </div>
 
             {/* Quick Directory Table */}
-            <div className="card shadow-xl border-0 mt-8 overflow-hidden mb-12">
-                <div className="card-header bg-white py-6 px-8 flex justify-between items-center border-b border-gray-100">
-                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">Clinical Registry: Recent Enrollments</h3>
-                    <button className="btn btn-primary btn-sm px-6 font-bold" onClick={() => navigate('/doctor/patients')}>See Full Registry</button>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm mt-8 mb-12 overflow-hidden">
+                <div className="px-8 py-5 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Recent Clinical Registry</h3>
+                    <button className="text-xs font-bold text-primary hover:underline" onClick={() => navigate('/doctor/patients')}>Full Directory →</button>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table w-full">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-gray-50">
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Patient Profile</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Biological Age</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Clinical Risk</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Neuro Score</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">AI ML Output</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Recorded On</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Action</th>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                                <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Profile</th>
+                                <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Biometric Age</th>
+                                <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Risk</th>
+                                <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Score</th>
+                                <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Status</th>
+                                <th className="px-8 py-4 text-right"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {patients.slice(0, 10).map(p => (
-                                <tr key={p.id} className="hover:bg-gray-50/50 transition-all cursor-pointer" onClick={() => navigate(`/doctor/patient/${p.id}`)}>
-                                    <td className="px-8 py-5">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-black text-sm border border-teal-100">
+                        <tbody className="divide-y divide-gray-100">
+                            {patients.slice(0, 8).map(p => (
+                                <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-8 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded bg-gray-100 text-gray-500 flex items-center justify-center font-bold text-xs">
                                                 {p.name[0]}
                                             </div>
                                             <div>
-                                                <span className="block text-sm font-bold text-gray-900 uppercase tracking-tight">{p.name}</span>
-                                                <span className="block text-xs font-medium text-gray-400 underline">{p.email}</span>
+                                                <div className="text-sm font-bold text-gray-800">{p.name}</div>
+                                                <div className="text-[10px] text-gray-400 font-medium">{p.email}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-5 text-sm font-black text-gray-500">{p.age || '—'} YRS</td>
-                                    <td className="px-8 py-5">
-                                        {p.latest_assessment ? <RiskBadge level={p.latest_assessment.risk_level} /> : <span className="text-gray-300 font-bold uppercase text-[10px]">Pending Test</span>}
+                                    <td className="px-8 py-4 text-xs font-bold text-gray-500">{p.age || '—'} yrs</td>
+                                    <td className="px-8 py-4">
+                                        {p.latest_assessment ? <RiskBadge level={p.latest_assessment.risk_level} /> : <span className="text-[9px] text-gray-300 font-bold uppercase">—</span>}
                                     </td>
-                                    <td className="px-8 py-5 font-black text-base text-gray-700">
-                                        {p.latest_assessment ? <div className="flex items-center gap-1.5"><span className="text-teal-600">{p.latest_assessment.total_score}</span><span className="text-gray-300 text-xs">/30</span></div> : '—'}
+                                    <td className="px-8 py-4 text-sm font-bold text-gray-700">
+                                        {p.latest_assessment ? <><span className="text-primary">{p.latest_assessment.total_score}</span><span className="text-gray-300 text-[10px]">/30</span></> : '—'}
                                     </td>
-                                    <td className="px-8 py-5">
+                                    <td className="px-8 py-4">
                                         {p.latest_assessment ? (
-                                            <span className={`badge ${p.latest_assessment.ml_prediction === 'dementia' ? 'badge-moderate' : 'badge-low'} border border-black/5`}>
-                                                {p.latest_assessment.ml_prediction}
-                                            </span>
+                                            <span className="text-[10px] font-bold uppercase text-gray-500">{p.latest_assessment.ml_prediction}</span>
                                         ) : '—'}
                                     </td>
-                                    <td className="px-8 py-5 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                        {p.latest_assessment ? p.latest_assessment.created_at : p.created_at}
-                                    </td>
-                                    <td className="px-8 py-5 text-right">
-                                        <button className="btn btn-outline btn-sm font-bold border-gray-200 text-gray-400 hover:text-teal-600 hover:border-teal-600" onClick={e => { e.stopPropagation(); navigate(`/doctor/patient/${p.id}`); }}>Open Profile</button>
+                                    <td className="px-8 py-4 text-right">
+                                        <button className="text-[10px] font-bold text-primary hover:underline uppercase" onClick={() => navigate(`/doctor/patient/${p.id}`)}>View Profile</button>
                                     </td>
                                 </tr>
                             ))}

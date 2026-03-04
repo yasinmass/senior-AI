@@ -108,6 +108,13 @@ export default function Result() {
                 <div id="verdict-summary" className="mt-4 text-sm text-gray-500 italic">
                     {t('result_total')}: {total_score}/30 · {mlLabel}
                 </div>
+
+                {/* Hidden registry ID for PDF extraction */}
+                <div className="hidden print:block mt-8 pt-6 border-t border-gray-200">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Clinical Registry Identification</p>
+                    <p className="text-xs font-bold text-gray-900">Name: {sessionStorage.getItem('patient_name')}</p>
+                    <p className="text-xs font-mono font-bold text-blue-600">System Registry Email: {sessionStorage.getItem('patient_email')}</p>
+                </div>
             </div>
         );
     }
@@ -201,13 +208,21 @@ export default function Result() {
                         {/* Final Verdict */}
                         {renderFinalVerdict()}
 
-                        {/* Return Button */}
-                        <button
-                            onClick={() => navigate('/')}
-                            className="w-full py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 text-lg"
-                        >
-                            {t('return_dashboard')}
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
+                            <button
+                                onClick={() => window.print()}
+                                className="w-full py-4 bg-gray-900 hover:bg-black text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 text-lg flex items-center justify-center gap-2"
+                            >
+                                📄 Download Official Report
+                            </button>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="w-full py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-95 text-lg"
+                            >
+                                {t('return_dashboard')}
+                            </button>
+                        </div>
                     </>
                 )}
             </div>

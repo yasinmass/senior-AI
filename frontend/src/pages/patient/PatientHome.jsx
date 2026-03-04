@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
-import { getLatestAssessment, getAssessmentHistory } from '../../utils/api';
+import { getLatestAssessment, getAssessmentHistory, getDoctors, setDoctor, apiFetch } from '../../utils/api';
 
 export default function PatientHome() {
     const navigate = useNavigate();
     const [latest, setLatest] = useState(null);
     const [history, setHistory] = useState([]);
+    const [doctors, setDoctors] = useState([]);
+    const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [updatingDoctor, setUpdatingDoctor] = useState(false);
 
     useEffect(() => {
         async function loadData() {
@@ -15,8 +18,16 @@ export default function PatientHome() {
             try {
                 const lData = await getLatestAssessment();
                 const hData = await getAssessmentHistory();
+                const dData = await getDoctors();
+                const pRes = await apiFetch('/me/');
+
                 if (lData.success) setLatest(lData.assessment);
                 if (hData.success) setHistory(hData.assessments);
+                if (dData.success) setDoctors(dData.doctors);
+                if (pRes.ok) {
+                    const pj = await pRes.json();
+                    setProfile(pj.patient);
+                }
             } catch (err) {
                 console.error("Failed to load patient data:", err);
             } finally {
@@ -26,7 +37,21 @@ export default function PatientHome() {
         loadData();
     }, []);
 
-    const name = sessionStorage.getItem('patient_name') || 'Patient';
+    async function handleEnroll(docId) {
+        setUpdatingDoctor(true);
+        try {
+            const res = await setDoctor(docId);
+            if (res.success) {
+                window.location.reload();
+            }
+        } catch (err) {
+            alert("Enrollment failed");
+        } finally {
+            setUpdatingDoctor(false);
+        }
+    }
+
+    const name = profile?.name || sessionStorage.getItem('patient_name') || 'Patient';
 
     if (loading) return (
         <DashboardLayout role="patient" title="My Health Portal">
@@ -38,9 +63,9 @@ export default function PatientHome() {
 
     const stats = [
         { label: 'Total Assessments', value: history.length, icon: '📋', color: 'var(--primary)', bg: 'var(--primary-pale)' },
-        { label: 'Latest Score', value: latest ? `${latest.total_score}/30` : 'None', icon: '🎯', color: 'var(--success)', bg: 'var(--success-light)' },
+        { label: 'Latest MMSE Score', value: latest ? `${latest.total_score}/30` : 'None', icon: '🎯', color: 'var(--success)', bg: 'var(--success-light)' },
         { label: 'Risk Level', value: latest?.final_risk_level || 'Pending', icon: '🛡️', color: 'var(--accent)', bg: 'var(--accent-light)' },
-        { label: 'Next Exercise', value: 'Today, 2PM', icon: '🧘', color: 'var(--teal)', bg: 'var(--teal-light)' },
+        { label: 'MOCA Test', value: 'Available', icon: '📋', color: 'var(--teal)', bg: 'var(--teal-light)' },
     ];
 
     return (
@@ -64,8 +89,8 @@ export default function PatientHome() {
                         <button className="btn bg-white text-primary font-black px-10 py-4 rounded-xl shadow-xl transition-all hover:scale-105" onClick={() => navigate('/patient/test')}>
                             Start New Assessment Now
                         </button>
-                        <button className="btn bg-blue-700/40 hover:bg-blue-700/60 text-white font-bold border border-white/20 px-8 py-4 rounded-xl" onClick={() => navigate('/patient/schedule')}>
-                            View My Schedule
+                        <button className="btn bg-blue-700/40 hover:bg-blue-700/60 text-white font-bold border border-white/20 px-8 py-4 rounded-xl" onClick={() => navigate('/patient/moca')}>
+                            Take MOCA Test
                         </button>
                         <button className="btn bg-white/10 hover:bg-white/20 text-white font-bold border border-white/20 px-8 py-4 rounded-xl ml-auto" onClick={() => navigate('/patient/results')}>
                             View History
@@ -128,13 +153,43 @@ export default function PatientHome() {
                     </div>
                 </div>
 
-                {/* Cognitive Wellness */}
+                {/* Cognitive Wellness & Personal Monitoring */}
                 <div className="card shadow-xl border-0 overflow-hidden bg-gray-900 text-white">
                     <div className="card-header border-white/5 py-6 px-8 flex items-center justify-between">
-                        <h3 className="text-lg font-black uppercase tracking-tight">Today's Focus</h3>
-                        <span className="text-emerald-400 text-xs font-black uppercase bg-emerald-400/10 px-3 py-1 rounded-full">Active Prescriptions</span>
+                        <h3 className="text-lg font-black uppercase tracking-tight">Clinical Wellness</h3>
+                        <span className="text-emerald-400 text-xs font-black uppercase bg-emerald-400/10 px-3 py-1 rounded-full">Supervisor Enrolled</span>
                     </div>
                     <div className="card-body p-8 space-y-6">
+                        {/* Maintenance Doctor Enrollment */}
+                        <div className="p-10 bg-white/5 rounded-[32px] border border-white/10 mb-6">
+                            <div className="text-2xl mb-4">🩺</div>
+                            <h4 className="text-lg font-black uppercase mb-1">Clinic Enrollment</h4>
+                            <p className="text-white/40 text-[10px] font-medium italic mb-6">Link with a clinician for professional dashboard maintenance.</p>
+
+                            {profile?.assigned_doctor ? (
+                                <div className="space-y-4">
+                                    <div className="bg-teal-500/10 p-4 rounded-xl border border-teal-500/20">
+                                        <p className="text-xs font-bold text-teal-400 uppercase tracking-widest mb-1">Supervising Physician</p>
+                                        <p className="text-sm font-black text-white">{profile.assigned_doctor.name}</p>
+                                        <p className="text-[10px] text-white/40">{profile.assigned_doctor.hospital}</p>
+                                    </div>
+                                    <button className="w-full py-3 bg-white/5 text-white/40 hover:text-white/80 font-black uppercase text-[9px] rounded-xl border border-white/10"
+                                        onClick={() => handleEnroll(null)} disabled={updatingDoctor}>
+                                        Disconnect Clinical Supervisor
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <select className="w-full bg-white/10 border-0 p-4 rounded-xl text-white text-xs font-bold focus:ring-1 ring-teal-500"
+                                        onChange={e => handleEnroll(e.target.value)} disabled={updatingDoctor}>
+                                        <option value="">Choose Clinical Provider…</option>
+                                        {doctors.map(d => <option key={d.id} value={d.id} className="text-black">{d.name} ({d.specialization})</option>)}
+                                    </select>
+                                    <p className="text-[9px] text-white/30 text-center">Selecting a doctor enables detailed maintenance monitoring in their dashboard.</p>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="p-10 text-center bg-white/5 rounded-[32px] border border-white/10">
                             <div className="text-4xl mb-6">🗓️</div>
                             <h4 className="text-xl font-black uppercase tracking-tighter mb-2">Clinical Timeline</h4>

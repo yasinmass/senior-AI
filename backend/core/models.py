@@ -33,6 +33,10 @@ class Patient(models.Model):
     age = models.IntegerField(null=True, blank=True)
     dob = models.DateField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
+    
+    # NEW: Clinical connection to a doctor
+    assigned_doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='patients')
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def set_password(self, raw_password):
@@ -99,6 +103,40 @@ class Assessment(models.Model):
         ordering = ['-created_at']
 
 
+class MOCAAssessment(models.Model):
+    """Stores Montreal Cognitive Assessment (MOCA) results — 30 marks total."""
+
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='moca_assessments')
+
+    # 10 sections × 3 marks each = 30
+    visuospatial_score   = models.IntegerField(default=0)   # Q1
+    naming_score         = models.IntegerField(default=0)   # Q2
+    memory_score         = models.IntegerField(default=0)   # Q3
+    attention1_score     = models.IntegerField(default=0)   # Q4 left/right sequence
+    attention2_score     = models.IntegerField(default=0)   # Q5 tap on A
+    attention3_score     = models.IntegerField(default=0)   # Q6 serial subtraction
+    language_score       = models.IntegerField(default=0)   # Q7 fluency
+    abstraction_score    = models.IntegerField(default=0)   # Q8 similarity
+    orientation_score    = models.IntegerField(default=0)   # Q9 date/place
+    delayed_recall_score = models.IntegerField(default=0)   # Q10 delayed memory
+
+    total_moca_score     = models.IntegerField(default=0)   # out of 30
+
+    # Store raw answers as JSON for auditing
+    answers_json = models.JSONField(default=dict, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"MOCA for {self.patient.name} — {self.total_moca_score}/30 ({self.created_at.strftime('%Y-%m-%d')})"
+
+    class Meta:
+        db_table   = 'moca_assessments'
+        verbose_name = 'MOCA Assessment'
+        verbose_name_plural = 'MOCA Assessments'
+        ordering   = ['-created_at']
+
+
 class ClinicalPlan(models.Model):
     """Stores clinical plans (exercises, diet, tasks) assigned by doctors to patients."""
     PLAN_TYPES = [
@@ -110,10 +148,9 @@ class ClinicalPlan(models.Model):
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='plans')
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='plans')
     plan_type = models.CharField(max_length=20, choices=PLAN_TYPES, default='exercise')
-    
-    # Store the actual plan data (weekly schedule etc) as JSON
+
     content = models.JSONField(default=dict) 
-    
+
     special_instructions = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -126,3 +163,24 @@ class ClinicalPlan(models.Model):
 
     def __str__(self):
         return f"{self.get_plan_type_display()} for {self.patient.name}"
+
+
+class TaskCompletion(models.Model):
+    """Tracks when a patient completes an assigned clinical task/exercise."""
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='completions')
+    plan = models.ForeignKey(ClinicalPlan, on_delete=models.CASCADE, related_name='completions')
+    
+    task_id = models.CharField(max_length=100) # e.g. "ex_1" or "diet_mon"
+    completed_at = models.DateTimeField(auto_now_add=True)
+    
+    # Metadata about the completion
+    notes = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        db_table = 'task_completions'
+        verbose_name = 'Task Completion'
+        verbose_name_plural = 'Task Completions'
+        ordering = ['-completed_at']
+
+    def __str__(self):
+        return f"Completion: {self.task_id} by {self.patient.name}"
