@@ -184,3 +184,23 @@ class TaskCompletion(models.Model):
 
     def __str__(self):
         return f"Completion: {self.task_id} by {self.patient.name}"
+
+
+class DiaryEntry(models.Model):
+    """Stores voice diary entries recorded by seniors."""
+    senior_id      = models.IntegerField()
+    original_text  = models.TextField()
+    english_text   = models.TextField()
+    language       = models.CharField(max_length=10)
+    mood_score     = models.IntegerField(null=True, blank=True)
+    emotion        = models.CharField(max_length=50, null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Diary #{self.id} by senior {self.senior_id} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+    class Meta:
+        db_table = 'diary_entries'
+        verbose_name = 'Diary Entry'
+        verbose_name_plural = 'Diary Entries'
+        ordering = ['-created_at']

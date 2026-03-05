@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Patient, Assessment
+from .models import Patient, Assessment, DiaryEntry
 
 
 @admin.register(Patient)
@@ -18,5 +18,14 @@ class AssessmentAdmin(admin.ModelAdmin):
     )
     list_filter = ('risk_level',)
     search_fields = ('patient__name', 'patient__email')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+
+
+@admin.register(DiaryEntry)
+class DiaryEntryAdmin(admin.ModelAdmin):
+    list_display = ('id', 'senior_id', 'language', 'emotion', 'created_at')
+    list_filter = ('language',)
+    search_fields = ('original_text', 'english_text')
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)

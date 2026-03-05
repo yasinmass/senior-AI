@@ -37,4 +37,8 @@ urlpatterns = [
     path('moca/save/',    views.save_moca_view,    name='save_moca'),
     path('moca/latest/',  views.latest_moca_view,  name='latest_moca'),
     path('moca/history/', views.moca_history_view, name='moca_history'),
+
+    # Voice Diary
+    path('diary/record/',  views.record_diary_view,      name='record_diary'),
+    path('diary/entries/', views.get_diary_entries_view,  name='diary_entries'),
 ]

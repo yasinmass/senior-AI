@@ -8,8 +8,66 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion
+from .models import Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion, DiaryEntry
 from .ml_predictor import predict_dementia, combined_risk_level
+import subprocess
+
+
+# ─── Faster-Whisper Model (lazy-loaded) ──────────────────────────────────────
+_whisper_model = None
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+            _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+            print("[WHISPER] Model loaded successfully.")
+        except Exception as e:
+            print(f"[WHISPER] ERROR loading model: {e}")
+    return _whisper_model
+
+
+def convert_webm_to_wav(input_path, output_path):
+    """Convert any audio format to 16kHz mono WAV using ffmpeg."""
+    subprocess.run(
+        ["ffmpeg", "-i", input_path, "-ar", "16000", "-ac", "1", "-y", output_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def process_diary_audio(audio_path):
+    """
+    Transcribe + translate audio using faster-whisper.
+    Returns dict with original_text, english_text, and language.
+    """
+    wav_path = audio_path.rsplit('.', 1)[0] + '.wav'
+    convert_webm_to_wav(audio_path, wav_path)
+
+    model = get_whisper_model()
+    if model is None:
+        raise RuntimeError("Whisper model could not be loaded.")
+
+    # Transcribe in original language
+    segments, info = model.transcribe(wav_path, task="transcribe")
+    original_text = " ".join([s.text for s in segments]).strip()
+    language = info.language
+
+    # Translate to English
+    segments_en, _ = model.transcribe(wav_path, task="translate")
+    english_text = " ".join([s.text for s in segments_en]).strip()
+
+    # Cleanup temp files
+    for p in [audio_path, wav_path]:
+        if os.path.exists(p):
+            os.remove(p)
+
+    return {
+        "original_text": original_text,
+        "english_text":  english_text,
+        "language":      language,
+    }
 
 
 
@@ -930,3 +988,90 @@ def doctor_extract_patient_view(request):
         return error("The email found in the PDF does not match any registered patient.")
     except Exception as e:
         return error(f"Extraction failed: {str(e)}")
+
+
+# ─── Voice Diary Views ────────────────────────────────────────────────────────
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def record_diary_view(request):
+    """
+    Record a voice diary entry:
+    1. Receive audio from frontend
+    2. Convert webm → wav via ffmpeg
+    3. Transcribe (original language) + translate (English) via faster-whisper
+    4. Save DiaryEntry to database
+    5. Cleanup temp audio files
+    """
+    patient_id = request.session.get('patient_id')
+    if not patient_id:
+        return error('Not authenticated.', 401)
+
+    audio_file = request.FILES.get('audio')
+    if not audio_file:
+        return error('No audio file provided.')
+
+    tmp_path = None
+    try:
+        # Save uploaded audio to a temp file
+        suffix = '.webm'
+        if audio_file.name:
+            if audio_file.name.endswith('.wav'):
+                suffix = '.wav'
+            elif audio_file.name.endswith('.mp3'):
+                suffix = '.mp3'
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            for chunk in audio_file.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        # Process audio: transcribe + translate
+        result = process_diary_audio(tmp_path)
+        tmp_path = None  # already cleaned up inside process_diary_audio
+
+        # Save to database
+        entry = DiaryEntry.objects.create(
+            senior_id=patient_id,
+            original_text=result['original_text'],
+            english_text=result['english_text'],
+            language=result['language'],
+        )
+
+        return success({
+            'original_text': entry.original_text,
+            'english_text':  entry.english_text,
+            'language':      entry.language,
+            'id':            entry.id,
+            'created_at':    entry.created_at.strftime('%Y-%m-%dT%H:%M:%S'),
+        }, status=201)
+
+    except Exception as e:
+        return error(f'Diary recording failed: {str(e)}', 500)
+
+    finally:
+        # Safety cleanup if process_diary_audio didn't run
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@require_http_methods(["GET"])
+def get_diary_entries_view(request):
+    """Get all diary entries for the logged-in patient, newest first."""
+    patient_id = request.session.get('patient_id')
+    if not patient_id:
+        return error('Not authenticated.', 401)
+
+    entries = DiaryEntry.objects.filter(senior_id=patient_id)
+    data = [
+        {
+            'id':            e.id,
+            'original_text': e.original_text,
+            'language':      e.language,
+            'mood_score':    e.mood_score,
+            'emotion':       e.emotion,
+            'created_at':    e.created_at.strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+        for e in entries
+    ]
+    return success({'entries': data})

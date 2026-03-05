@@ -194,3 +194,19 @@ export async function ingestPatientPDF(file) {
     });
     return res.json();
 }
+
+// Voice Diary
+export async function recordDiary(audioBlob) {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'diary.webm');
+    const res = await apiFetch('/diary/record/', {
+        method: 'POST',
+        body: formData,
+    });
+    return res.json();
+}
+
+export async function getDiaryEntries() {
+    const res = await apiFetch('/diary/entries/');
+    return res.json();
+}

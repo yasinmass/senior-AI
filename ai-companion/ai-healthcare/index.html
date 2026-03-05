@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>உங்கள் நண்பன் · Live</title>
+  <meta name="description" content="A Gemini Live-style AI voice companion for elderly emotional support." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+Tamil:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ── AMBIENT BACKGROUND ── -->
+  <div class="ambient-bg">
+    <div class="orb orb-blue"></div>
+    <div class="orb orb-purple"></div>
+    <div class="orb orb-teal"></div>
+  </div>
+
+  <!-- ── TOP BAR ── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-ghost" id="profileUploadBtn" title="Upload profile photo" onclick="triggerPhotoUpload()">
+        <div class="profile-pic-wrap" id="profilePicWrap">
+          <img id="profilePic" src="" alt="Profile" class="profile-pic hidden" />
+          <span class="profile-initials" id="profileInitials">L</span>
+        </div>
+      </button>
+      <input type="file" id="photoFileInput" accept="image/*" style="display:none"
+        onchange="handlePhotoUpload(event)" />
+    </div>
+
+    <div class="topbar-center">
+      <div class="live-indicator" id="liveIndicator">
+        <div class="live-bars">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <span class="live-label" id="liveLabel">Live</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <button class="icon-ghost" id="settingsToggleBtn" onclick="toggleSettings()" title="Settings">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── SETTINGS PANEL (slide-in) ── -->
+  <div class="settings-panel hidden" id="settingsPanel">
+    <div class="settings-inner">
+      <div class="settings-row">
+        <label>Groq API Key</label>
+        <div class="api-row">
+          <input type="password" id="apiKeyInput" placeholder="gsk_…" class="s-input" />
+          <button class="s-btn" onclick="saveKey()">Save</button>
+        </div>
+        <p class="s-hint" id="keyStatus"></p>
+      </div>
+      <div class="settings-row">
+        <label>🗣️ Voice Input Language</label>
+        <p class="s-hint" style="color:#60a5fa;">Use the <strong>🇮🇳 TA / 🇬🇧 EN</strong> button on the bottom dock to
+          switch voice recognition between Tamil and English.</p>
+      </div>
+      <div class="settings-row toggle-row">
+        <label>Auto-speak replies</label>
+        <label class="toggle">
+          <input type="checkbox" id="autoSpeakToggle" checked onchange="saveAutoSpeak()" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN STAGE ── -->
+  <main class="stage">
+
+    <!-- AI Orb -->
+    <div class="orb-stage" id="orbStage">
+      <div class="ai-orb" id="aiOrb">
+        <div class="orb-ring r1"></div>
+        <div class="orb-ring r2"></div>
+        <div class="orb-ring r3"></div>
+        <div class="orb-core" id="orbCore">
+          <span class="orb-icon" id="orbIcon">🤍</span>
+        </div>
+      </div>
+      <p class="orb-state-label" id="orbLabel">உங்கள் நண்பன்</p>
+    </div>
+
+    <!-- Voice wave visualizer (shown while recording) -->
+    <div class="wave-wrap" id="waveWrap">
+      <svg class="wave-svg" id="waveSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
+        <path id="wavePath" d="M0,40 Q75,40 150,40 Q225,40 300,40" fill="none" stroke="rgba(96,165,250,0.8)"
+          stroke-width="3" stroke-linecap="round" />
+      </svg>
+    </div>
+
+    <!-- Live transcript (shown while recording) -->
+    <div class="transcript-bubble hidden" id="transcriptBubble">
+      <p id="transcriptText"></p>
+    </div>
+
+    <!-- Conversation messages -->
+    <div class="messages-area" id="messagesArea">
+      <!-- Injected by JS -->
+    </div>
+
+  </main>
+
+  <!-- ── BOTTOM DOCK ── -->
+  <div class="bottom-dock">
+
+    <!-- Text input row (hidden until user swipes up / clicks) -->
+    <div class="text-input-row hidden" id="textInputRow">
+      <textarea id="textInput" placeholder="Type பண்ணலாம் / Type here…" rows="1" onkeydown="handleTextKey(event)"
+        oninput="autoResize(this)"></textarea>
+      <button class="send-text-btn" onclick="sendTextMessage()">
+        <svg viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Main dock buttons -->
+    <div class="dock-buttons">
+
+      <!-- Language toggle: switches voice recognition between Tamil & English -->
+      <button class="dock-btn lang-btn" id="langToggleBtn" onclick="toggleRecogLang()" title="Switch mic language">
+        🇮🇳 TA
+      </button>
+
+      <!-- Keyboard toggle -->
+      <button class="dock-btn secondary" id="keyboardBtn" onclick="toggleTextInput()" title="Type">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
+        </svg>
+      </button>
+
+      <!-- MIC – main CTA -->
+      <button class="dock-btn mic-btn" id="micBtn" onclick="toggleMic()" title="Hold to speak">
+        <svg class="mic-on" viewBox="0 0 24 24">
+          <path d="M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
+          <path d="M19 10a7 7 0 0 1-14 0" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+          <line x1="8" y1="23" x2="16" y2="23" />
+        </svg>
+        <svg class="mic-stop hidden" viewBox="0 0 24 24">
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+        </svg>
+      </button>
+
+      <!-- Clear / End -->
+      <button class="dock-btn secondary" id="endBtn" onclick="clearConversation()" title="Clear chat">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+      </button>
+
+    </div>
+
+    <p class="dock-hint" id="dockHint">🎙️ Mic தொட்டு பேசுங்கள் · எந்த மொழியிலும்</p>
+  </div>
+
+  <!-- ResponsiveVoice: Cross-platform TTS with Tamil Female voice -->
+  <script src="https://code.responsivevoice.org/responsivevoice.js?key=FREE"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
