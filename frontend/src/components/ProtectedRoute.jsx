@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { checkAuth } from '../utils/api';
 
 export default function ProtectedRoute({ children, role: requiredRole }) {
-    const [auth, setAuth] = useState(null); // null = unknown, false = failed, object = success
+    const [auth, setAuth] = useState(null);
     const [loading, setLoading] = useState(true);
     const location = useLocation();
 
@@ -23,17 +23,21 @@ export default function ProtectedRoute({ children, role: requiredRole }) {
     }, [location.pathname]);
 
     if (loading) return (
-        <div className="flex items-center justify-center p-40">
-            <div className="spin text-teal-600 text-4xl">⟳</div>
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '160px 24px', background: '#F4F6F9', minHeight: '100vh',
+        }}>
+            <div style={{ textAlign: 'center' }}>
+                <div className="loader-ring" style={{ margin: '0 auto 16px' }} />
+                <p style={{ fontSize: 15, color: '#94A3B5', fontWeight: 500 }}>Verifying your session…</p>
+            </div>
         </div>
     );
 
-    // No auth at all
     if (!auth) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Auth but wrong role
     if (requiredRole && auth.role !== requiredRole) {
         return <Navigate to={auth.role === 'patient' ? '/patient' : '/doctor'} replace />;
     }

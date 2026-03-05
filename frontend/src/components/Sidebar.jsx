@@ -15,14 +15,17 @@ export default function Sidebar({ role, isOpen, onClose }) {
     const patientLinks = [
         { to: '/patient/schedule', label: 'Home', icon: '🏠' },
         { to: '/patient/test', label: 'AI Screening', icon: '🧠' },
-        { to: '/patient/results', label: 'My Reports', icon: '📜' },
+        { to: '/patient/companion', label: 'AI Companion', icon: '🤖' },
+        { to: '/patient/diary', label: 'Diary', icon: '📓' },
+        { to: '/patient/soul-connect', label: 'Soul Connect', icon: '🤝' },
+        { to: '/patient/results', label: 'My Reports', icon: '📊' },
         { to: '/patient/notifications', label: 'Messages', icon: '💬' },
     ];
 
     const doctorLinks = [
-        { to: '/doctor', label: 'Overview', icon: '🏛️' },
-        { to: '/doctor/patients', label: 'Patients Registry', icon: '👥' },
-        { to: '/doctor/schedule', label: 'Schedule Targets', icon: '📅' },
+        { to: '/doctor', label: 'Overview', icon: '📋' },
+        { to: '/doctor/patients', label: 'Patients', icon: '👥' },
+        { to: '/doctor/schedule', label: 'Schedule', icon: '📅' },
     ];
 
     const links = role === 'doctor' ? doctorLinks : patientLinks;
@@ -33,38 +36,61 @@ export default function Sidebar({ role, isOpen, onClose }) {
             <div className={`sidebar-overlay ${isOpen ? 'visible' : ''}`} onClick={onClose} />
 
             <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+                {/* Logo */}
                 <div className="sidebar-logo">
                     <div className="logo-mark">
-                        <svg width={20} height={20} fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                        <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2C8.5 2 6 4.5 6 7.5c0 1.5.5 2.8 1.5 3.8C6 12 5 13.5 5 15.5 5 18.5 7.5 21 10.5 21c1 0 1.5-.2 1.5-.2s.5.2 1.5.2C16.5 21 19 18.5 19 15.5c0-2-1-3.5-2.5-4.2 1-.9 1.5-2.3 1.5-3.8C18 4.5 15.5 2 12 2z" />
+                            <path strokeLinecap="round" d="M12 6v6M9.5 9h5" />
+                            <circle cx="12" cy="16" r="1.5" fill="#fff" stroke="none" />
                         </svg>
                     </div>
-                    <h1 className="uppercase tracking-[0.1em] font-black text-xs text-white">NeuroScan <span className="text-teal-400">AI</span></h1>
-                    <span className="text-[9px] font-black opacity-40 uppercase tracking-widest mt-1 block px-0.5">Clinical Edition v2.0</span>
+                    <h1 style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '0.02em' }}>
+                        NeuroScan <span style={{ color: '#6BCB77' }}>AI</span>
+                    </h1>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 400, display: 'block', marginTop: 2 }}>
+                        Dementia Screening Platform
+                    </span>
                 </div>
 
+                {/* Navigation */}
                 <nav className="sidebar-nav">
-                    <div className="nav-section-label">{role === 'doctor' ? 'Clinical Workspace' : 'Health Portal'}</div>
+                    <div className="nav-section-label">
+                        {role === 'doctor' ? 'Clinical Workspace' : 'Health Portal'}
+                    </div>
                     {links.map(link => (
-                        <NavLink key={link.to} to={link.to} end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} onClick={onClose}>
-                            <span className="nav-icon text-lg">{link.icon}</span>
-                            <span className="font-black uppercase tracking-widest text-[10px]">{link.label}</span>
+                        <NavLink
+                            key={link.to}
+                            to={link.to}
+                            end
+                            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                            onClick={onClose}
+                        >
+                            <span className="nav-icon">{link.icon}</span>
+                            <span style={{ fontSize: 15, fontWeight: 500 }}>{link.label}</span>
                             {link.badge && <span className="nav-badge">{link.badge}</span>}
                         </NavLink>
                     ))}
                 </nav>
 
+                {/* Footer */}
                 <div className="sidebar-footer">
-                    <div className="sidebar-user mb-4">
-                        <div className="sidebar-avatar font-black">{name[0]}</div>
-                        <div className="sidebar-user-info max-w-[140px] truncate">
-                            <p className="font-black text-[11px] uppercase tracking-tight truncate">{name}</p>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase truncate">{role === 'doctor' ? 'Neurologist' : 'Patient'}</span>
+                    <div className="sidebar-user" style={{ marginBottom: 8 }}>
+                        <div className="sidebar-avatar">{name[0]}</div>
+                        <div className="sidebar-user-info" style={{ maxWidth: 140, overflow: 'hidden' }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                                {role === 'doctor' ? 'Healthcare Provider' : 'Patient'}
+                            </span>
                         </div>
                     </div>
-                    <button className="nav-item border border-white/10 mt-4 hover:bg-red-500/10 hover:text-red-400 transition-all font-black" onClick={handleLogout}>
+                    <button
+                        className="nav-item"
+                        style={{ border: '1px solid rgba(255,255,255,0.1)', marginTop: 8 }}
+                        onClick={handleLogout}
+                    >
                         <span className="nav-icon">🚪</span>
-                        <span className="uppercase tracking-widest text-[9px]">Terminate Session</span>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>Sign Out</span>
                     </button>
                 </div>
             </aside>

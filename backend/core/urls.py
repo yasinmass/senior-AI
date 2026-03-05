@@ -15,11 +15,11 @@ urlpatterns = [
     # Doctor Dashboard APIs                                                 a
 
     path('doctor/stats/', views.doctor_stats_view, name='doctor_stats'),
-    path('doctor/patients', views.doctor_patients_view),
-    path('doctor/patient/<int:patient_id>', views.doctor_patient_detail_view),
-    path('doctor/add-patient', views.doctor_associate_patient_view),
-    path('doctor/extract-patient', views.doctor_extract_patient_view),
-    path('doctor/completions', views.doctor_completions_view),
+    path('doctor/patients/', views.doctor_patients_view),
+    path('doctor/patient/<int:patient_id>/', views.doctor_patient_detail_view),
+    path('doctor/add-patient/', views.doctor_associate_patient_view),
+    path('doctor/extract-patient/', views.doctor_extract_patient_view),
+    path('doctor/completions/', views.doctor_completions_view),
 
     # ML Audio Analysis
     path('audio/analyze/', views.analyze_audio_view, name='analyze_audio'),

@@ -1,16 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Healthcare AI — Dementia Screening</title>
-    <meta name="description" content="AI-driven early cognitive health assessment using voice biomarkers and memory quiz." />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dementia Screening & Care Platform — Early Detection Made Simple</title>
+  <meta name="description"
+    content="AI-powered early cognitive health assessment using voice biomarkers, MMSE, and MoCA cognitive tests." />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2A6F97',
+            'primary-light': '#E8F1F8',
+            'primary-dark': '#1B4F6E',
+            accent: '#3A8FBF',
+            success: '#6BCB77',
+          },
+          fontFamily: {
+            sans: ['Poppins', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

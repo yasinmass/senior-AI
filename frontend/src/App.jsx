@@ -16,6 +16,9 @@ import PatientSchedule from './pages/patient/PatientSchedule';
 import PatientNotifications from './pages/patient/PatientNotifications';
 import PatientResults from './pages/patient/PatientResults';
 import MOCATest from './pages/patient/MOCATest';
+import AICompanion from './pages/patient/AICompanion';
+import Diary from './pages/patient/Diary';
+import SoulConnect from './pages/patient/SoulConnect';
 
 // Doctor Dashboard
 import DoctorOverview from './pages/doctor/DoctorOverview';
@@ -42,6 +45,9 @@ export default function App() {
         <Route path="/patient/schedule" element={<ProtectedRoute role="patient"><PatientSchedule /></ProtectedRoute>} />
         <Route path="/patient/test" element={<ProtectedRoute role="patient"><PatientTest /></ProtectedRoute>} />
         <Route path="/patient/moca" element={<ProtectedRoute role="patient"><MOCATest /></ProtectedRoute>} />
+        <Route path="/patient/companion" element={<ProtectedRoute role="patient"><AICompanion /></ProtectedRoute>} />
+        <Route path="/patient/diary" element={<ProtectedRoute role="patient"><Diary /></ProtectedRoute>} />
+        <Route path="/patient/soul-connect" element={<ProtectedRoute role="patient"><SoulConnect /></ProtectedRoute>} />
         <Route path="/patient/notifications" element={<ProtectedRoute role="patient"><PatientNotifications /></ProtectedRoute>} />
         <Route path="/patient/results" element={<ProtectedRoute role="patient"><PatientResults /></ProtectedRoute>} />
 

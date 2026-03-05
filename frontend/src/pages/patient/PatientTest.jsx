@@ -19,20 +19,20 @@ function Steps({ step }) {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 32 }}>
             {items.map((label, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < items.length - 1 ? 1 : 'none' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                         <div style={{
-                            width: 36, height: 36, borderRadius: '50%',
-                            background: i < step ? 'var(--success)' : i === step ? 'var(--primary)' : 'var(--gray-200)',
-                            color: i <= step ? '#fff' : 'var(--gray-400)',
+                            width: 40, height: 40, borderRadius: '50%',
+                            background: i < step ? '#6BCB77' : i === step ? '#2A6F97' : '#E2E7ED',
+                            color: i <= step ? '#fff' : '#94A3B5',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 700, fontSize: 14, transition: 'all .3s'
+                            fontWeight: 700, fontSize: 15, transition: 'all .3s'
                         }}>
                             {i < step ? '✓' : i + 1}
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: i === step ? 'var(--primary)' : 'var(--gray-400)', whiteSpace: 'nowrap' }}>{label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: i === step ? '#2A6F97' : '#94A3B5', whiteSpace: 'nowrap' }}>{label}</span>
                     </div>
                     {i < items.length - 1 && (
-                        <div style={{ flex: 1, height: 2, background: i < step ? 'var(--success)' : 'var(--gray-200)', margin: '0 8px', marginBottom: 20, transition: 'background .3s' }} />
+                        <div style={{ flex: 1, height: 3, background: i < step ? '#6BCB77' : '#E2E7ED', margin: '0 10px', marginBottom: 24, borderRadius: 2, transition: 'background .3s' }} />
                     )}
                 </div>
             ))}
@@ -45,8 +45,8 @@ function VoicePhase({ onDone }) {
     const [showNotice, setShowNotice] = useState(true);
     const [isRecording, setIsRecording] = useState(false);
     const [seconds, setSeconds] = useState(0);
-    const [statusText, setStatusText] = useState('Click the mic to begin recording');
-    const [statusColor, setStatusColor] = useState('var(--gray-500)');
+    const [statusText, setStatusText] = useState('Click the microphone button to begin recording');
+    const [statusColor, setStatusColor] = useState('#6B7D8F');
     const [nextEnabled, setNextEnabled] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
 
@@ -70,7 +70,6 @@ function VoicePhase({ onDone }) {
     async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
@@ -127,15 +126,15 @@ function VoicePhase({ onDone }) {
                                 ml_dementia_probability: ml.ml_dementia_probability,
                                 ml_normal_probability: ml.ml_normal_probability,
                             }));
-                            setStatusText(ml.ml_prediction === 'dementia' ? '⚠ Voice analysis indicates elevated markers' : '✔ Voice analysis complete — normal pattern');
-                            setStatusColor(ml.ml_prediction === 'dementia' ? 'var(--warning)' : 'var(--success)');
+                            setStatusText(ml.ml_prediction === 'dementia' ? '⚠ Voice analysis indicates elevated markers' : '✔ Voice analysis complete — normal patterns detected');
+                            setStatusColor(ml.ml_prediction === 'dementia' ? '#F0AD4E' : '#6BCB77');
                         }
-                    } catch { setStatusText('Voice saved. Proceeding to questionnaire.'); }
+                    } catch { setStatusText('Voice saved. Proceeding to next step.'); }
                     setAnalyzing(false);
                     setNextEnabled(true);
                 } else {
-                    setStatusText(`Too short! Please record at least ${MIN_DURATION} seconds.`);
-                    setStatusColor('var(--danger)');
+                    setStatusText(`Recording too short. Please record at least ${MIN_DURATION} seconds.`);
+                    setStatusColor('#E74C3C');
                 }
                 setIsRecording(false);
                 isRecordingRef.current = false;
@@ -151,10 +150,10 @@ function VoicePhase({ onDone }) {
             timerRef.current = setInterval(updateTimer, 1000);
             checkSilence();
             setStatusText('Recording… speak naturally about your day');
-            setStatusColor('var(--primary)');
+            setStatusColor('#2A6F97');
         } catch (err) {
             setStatusText('Microphone access denied or not available.');
-            setStatusColor('var(--danger)');
+            setStatusColor('#E74C3C');
         }
     }
 
@@ -174,78 +173,93 @@ function VoicePhase({ onDone }) {
     const secs = seconds % 60;
 
     if (showNotice) return (
-        <div className="card" style={{ maxWidth: 560, margin: '0 auto' }}>
-            <div className="card-body" style={{ padding: 32 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--warning-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 20 }}>⚠️</div>
-                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, color: 'var(--gray-800)' }}>Before You Begin</h3>
-                <div style={{ color: 'var(--gray-600)', fontSize: 14, lineHeight: 1.8, marginBottom: 24 }}>
-                    <p>• Find a <strong>quiet environment</strong> with minimal background noise</p>
-                    <p>• Speak clearly and naturally for <strong>10–60 seconds</strong></p>
-                    <p>• Describe your morning routine, a recent memory, or read the passage shown</p>
-                    <p>• This voice recording helps our AI detect speech patterns</p>
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setShowNotice(false)}>I'm Ready →</button>
-                </div>
+        <div style={{
+            maxWidth: 560, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            padding: 36,
+        }}>
+            <div style={{
+                width: 56, height: 56, borderRadius: 14,
+                background: '#FFF6E5', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, marginBottom: 20,
+            }}>⚠️</div>
+            <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12, color: '#1F2F3D' }}>Before You Begin</h3>
+            <div style={{ color: '#6B7D8F', fontSize: 16, lineHeight: 1.9, marginBottom: 28 }}>
+                <p>• Find a <strong>quiet environment</strong> with minimal background noise</p>
+                <p>• Speak clearly and naturally for <strong>10–60 seconds</strong></p>
+                <p>• Describe your morning routine, a recent memory, or read the prompt</p>
+                <p>• This voice recording helps our AI detect speech patterns</p>
             </div>
+            <button className="btn btn-primary btn-lg" style={{ width: '100%' }} onClick={() => setShowNotice(false)}>
+                I'm Ready — Start Voice Test →
+            </button>
         </div>
     );
 
     return (
-        <div className="card" style={{ maxWidth: 560, margin: '0 auto' }}>
-            <div className="card-body" style={{ padding: 32, textAlign: 'center' }}>
-                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Voice Analysis</h3>
-                <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 28 }}>Speak naturally — our AI will analyze your speech patterns</p>
+        <div style={{
+            maxWidth: 560, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            padding: 36, textAlign: 'center',
+        }}>
+            <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, color: '#1F2F3D' }}>Voice Analysis</h3>
+            <p style={{ fontSize: 15, color: '#6B7D8F', marginBottom: 28 }}>Speak naturally — our AI will analyze your speech patterns</p>
 
-                {/* Circular mic */}
-                <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto 24px' }}>
-                    <svg style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} width={140} height={140}>
-                        <circle cx={70} cy={70} r={54} stroke="var(--gray-200)" strokeWidth={8} fill="transparent" />
-                        <circle cx={70} cy={70} r={54} stroke={isRecording ? 'var(--danger)' : 'var(--primary)'} strokeWidth={8} fill="transparent"
-                            strokeDasharray={CIRCUMFERENCE} strokeDashoffset={strokeOffset} strokeLinecap="round"
-                            style={{ transition: 'stroke-dashoffset 1s linear, stroke .3s' }} />
-                    </svg>
-                    <button
-                        className={`mic-btn ${isRecording ? 'recording' : ''} ${isRecording ? 'pulse-ring' : ''}`}
-                        style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
-                        onClick={() => isRecording ? stopRecording() : startRecording()}
-                        disabled={analyzing}
-                    >
-                        {isRecording ? (
-                            <svg width={24} height={24} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <rect x={6} y={6} width={12} height={12} rx={2} fill="currentColor" stroke="none" />
-                            </svg>
-                        ) : (
-                            <svg width={24} height={24} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                            </svg>
-                        )}
-                    </button>
-                </div>
+            {/* Circular mic button */}
+            <div style={{ position: 'relative', width: 160, height: 160, margin: '0 auto 28px' }}>
+                <svg style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }} width={160} height={160}>
+                    <circle cx={80} cy={80} r={54} stroke="#E2E7ED" strokeWidth={8} fill="transparent" />
+                    <circle cx={80} cy={80} r={54} stroke={isRecording ? '#E74C3C' : '#2A6F97'} strokeWidth={8} fill="transparent"
+                        strokeDasharray={CIRCUMFERENCE} strokeDashoffset={strokeOffset} strokeLinecap="round"
+                        style={{ transition: 'stroke-dashoffset 1s linear, stroke .3s' }} />
+                </svg>
+                <button
+                    className={`mic-btn ${isRecording ? 'recording' : ''} ${isRecording ? 'pulse-ring' : ''}`}
+                    style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' }}
+                    onClick={() => isRecording ? stopRecording() : startRecording()}
+                    disabled={analyzing}
+                >
+                    {isRecording ? (
+                        <svg width={26} height={26} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <rect x={6} y={6} width={12} height={12} rx={2} fill="currentColor" stroke="none" />
+                        </svg>
+                    ) : (
+                        <svg width={28} height={28} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                    )}
+                </button>
+            </div>
 
-                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--gray-800)', marginBottom: 8 }}>
-                    {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
-                </div>
-                <p style={{ fontSize: 14, color: statusColor, fontWeight: 600, marginBottom: 24, minHeight: 20 }}>
-                    {analyzing ? <span className="spin" style={{ display: 'inline-block' }}>⟳</span> : null} {statusText}
+            <div style={{ fontSize: 32, fontWeight: 700, color: '#1F2F3D', marginBottom: 8 }}>
+                {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+            </div>
+            <p style={{ fontSize: 15, color: statusColor, fontWeight: 600, marginBottom: 28, minHeight: 22 }}>
+                {analyzing ? <span className="spin" style={{ display: 'inline-block' }}>⟳</span> : null} {statusText}
+            </p>
+
+            {/* Prompt */}
+            <div style={{ background: '#F4F6F9', borderRadius: 10, padding: 18, marginBottom: 28, textAlign: 'left' }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#94A3B5', textTransform: 'uppercase', marginBottom: 8 }}>Suggested prompt:</p>
+                <p style={{ fontSize: 15, color: '#4A5D6F', lineHeight: 1.7, fontStyle: 'italic' }}>
+                    "Tell me about what you did this morning — what you ate, where you went, and what you plan to do today."
                 </p>
+            </div>
 
-                <div style={{ background: 'var(--gray-50)', borderRadius: 'var(--radius-sm)', padding: 16, marginBottom: 24, textAlign: 'left' }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-400)', textTransform: 'uppercase', marginBottom: 8 }}>Suggested prompt:</p>
-                    <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.7, fontStyle: 'italic' }}>
-                        "Tell me about what you did this morning — what you ate, where you went, and what you plan to do today."
-                    </p>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <button className="btn btn-primary" onClick={() => isRecording ? stopRecording() : startRecording()} disabled={analyzing}>
-                        {isRecording ? '⏹ Stop Recording' : '🎙 Start Recording'}
-                    </button>
-                    <button className="btn btn-secondary" disabled={!nextEnabled} onClick={onDone}
-                        style={{ opacity: nextEnabled ? 1 : .5, cursor: nextEnabled ? 'pointer' : 'not-allowed' }}>
-                        Order: Quiz →
-                    </button>
-                </div>
+            {/* Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <button className="btn btn-primary" onClick={() => isRecording ? stopRecording() : startRecording()} disabled={analyzing} style={{ fontSize: 15, padding: '14px 0' }}>
+                    {isRecording ? '⏹ Stop' : '🎙 Record'}
+                </button>
+                <button className="btn btn-secondary" disabled={!nextEnabled} onClick={onDone}
+                    style={{ opacity: nextEnabled ? 1 : .5, cursor: nextEnabled ? 'pointer' : 'not-allowed', fontSize: 15, padding: '14px 0' }}>
+                    Continue →
+                </button>
             </div>
         </div>
     );
@@ -253,7 +267,7 @@ function VoicePhase({ onDone }) {
 
 // ── Quiz Phase ────────────────────────────────────────────────────────────────
 function QuizPhase({ onDone }) {
-    const [phase, setPhase] = useState('memory'); // memory | quiz | saving
+    const [phase, setPhase] = useState('memory');
     const [questions] = useState(() => getQuestions());
     const [step, setStep] = useState(0);
     const [domainCounts, setDomainCounts] = useState({ orientation: 0, memory: 0, executive: 0 });
@@ -301,37 +315,76 @@ function QuizPhase({ onDone }) {
     const q = questions[step];
 
     if (phase === 'memory') return (
-        <div className="card" style={{ maxWidth: 600, margin: '0 auto' }}>
-            <div className="card-body" style={{ padding: 32, textAlign: 'center' }}>
-                <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Memory Warm-Up</h3>
-                <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24 }}>Memorize these words — you'll be asked about them later</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 32 }}>
-                    {MEMORY_WORDS.map(w => (
-                        <span key={w} style={{ background: 'var(--primary-pale)', color: 'var(--primary)', borderRadius: 'var(--radius-sm)', padding: '12px 24px', fontWeight: 800, fontSize: 18, border: '2px solid var(--primary-pale)' }}>{w}</span>
-                    ))}
-                </div>
-                <button className="btn btn-primary btn-lg" onClick={startQuiz}>I've Memorized Them — Start Quiz →</button>
+        <div style={{
+            maxWidth: 600, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            padding: 36, textAlign: 'center',
+        }}>
+            <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: '#1F2F3D' }}>Memory Warm-Up</h3>
+            <p style={{ fontSize: 15, color: '#6B7D8F', marginBottom: 28 }}>Memorize these words — you'll be asked about them later</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 32 }}>
+                {MEMORY_WORDS.map(w => (
+                    <span key={w} style={{
+                        background: '#E8F1F8', color: '#2A6F97',
+                        borderRadius: 10, padding: '14px 28px',
+                        fontWeight: 700, fontSize: 20,
+                        border: '2px solid #D0E4F0',
+                    }}>{w}</span>
+                ))}
             </div>
+            <button className="btn btn-primary btn-lg" onClick={startQuiz} style={{ width: '100%' }}>
+                I've Memorized Them — Start Quiz →
+            </button>
         </div>
     );
 
     if (phase === 'quiz') return (
-        <div className="card" style={{ maxWidth: 600, margin: '0 auto', overflow: 'hidden' }}>
-            <div style={{ height: 6, background: 'var(--gray-200)' }}>
-                <div style={{ height: '100%', background: 'linear-gradient(90deg,var(--primary),var(--accent))', width: `${progress}%`, transition: 'width .5s ease', borderRadius: '0 4px 4px 0' }} />
+        <div style={{
+            maxWidth: 600, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            overflow: 'hidden',
+        }}>
+            {/* Progress bar at top */}
+            <div style={{ height: 8, background: '#E2E7ED' }}>
+                <div style={{
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #2A6F97, #6BCB77)',
+                    width: `${progress}%`,
+                    transition: 'width .5s ease',
+                    borderRadius: '0 4px 4px 0',
+                }} />
             </div>
-            <div className="card-body" style={{ padding: 32 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span className="badge badge-primary" style={{ textTransform: 'capitalize' }}>{q?.domain} Assessment</span>
-                    <span style={{ fontSize: 13, color: 'var(--gray-400)', fontWeight: 600 }}>{step + 1} / {questions.length}</span>
+            <div style={{ padding: 36 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <span style={{
+                        display: 'inline-flex', padding: '5px 14px',
+                        background: '#E8F1F8', color: '#2A6F97',
+                        borderRadius: 20, fontSize: 13, fontWeight: 600,
+                        textTransform: 'capitalize',
+                    }}>{q?.domain} Assessment</span>
+                    <span style={{ fontSize: 14, color: '#94A3B5', fontWeight: 600 }}>{step + 1} / {questions.length}</span>
                 </div>
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: 'var(--gray-800)', lineHeight: 1.5 }}>{q?.q}</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 24, color: '#1F2F3D', lineHeight: 1.5 }}>{q?.q}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {q?.opts.map(opt => (
                         <button key={opt} onClick={() => handleAnswer(opt)}
-                            style={{ padding: '14px 18px', border: '2px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', background: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all .15s', color: 'var(--gray-700)' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-light)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-200)'; e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = 'var(--gray-700)'; }}
+                            style={{
+                                padding: '16px 20px',
+                                border: '2px solid #E2E7ED',
+                                borderRadius: 10,
+                                background: '#fff',
+                                fontSize: 16, fontWeight: 500,
+                                cursor: 'pointer', textAlign: 'left',
+                                transition: 'all .15s',
+                                color: '#4A5D6F',
+                                fontFamily: 'inherit',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#2A6F97'; e.currentTarget.style.background = '#E8F1F8'; e.currentTarget.style.color = '#2A6F97'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E2E7ED'; e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#4A5D6F'; }}
                         >
                             {opt}
                         </button>
@@ -342,23 +395,31 @@ function QuizPhase({ onDone }) {
     );
 
     if (phase === 'saving') return (
-        <div className="card" style={{ maxWidth: 500, margin: '0 auto' }}>
-            <div className="card-body" style={{ padding: 48, textAlign: 'center' }}>
-                <div className="loader-ring" style={{ margin: '0 auto 20px' }} />
-                <h3 style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>Analyzing Your Results…</h3>
-                <p style={{ color: 'var(--gray-500)', fontSize: 14 }}>Our AI is combining your voice patterns and quiz responses to generate a comprehensive assessment.</p>
-            </div>
+        <div style={{
+            maxWidth: 500, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            padding: 48, textAlign: 'center',
+        }}>
+            <div className="loader-ring" style={{ margin: '0 auto 20px' }} />
+            <h3 style={{ fontWeight: 700, fontSize: 20, marginBottom: 8, color: '#1F2F3D' }}>Analyzing Your Results…</h3>
+            <p style={{ color: '#6B7D8F', fontSize: 15 }}>Our AI is combining your voice patterns and quiz responses to generate a comprehensive assessment.</p>
         </div>
     );
 
     if (phase === 'error') return (
-        <div className="card" style={{ maxWidth: 500, margin: '0 auto' }}>
-            <div className="card-body" style={{ padding: 32, textAlign: 'center' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
-                <h3 style={{ fontWeight: 800, fontSize: 20, color: 'var(--danger)', marginBottom: 8 }}>Save Error</h3>
-                <p style={{ color: 'var(--gray-500)', fontSize: 14 }}>Could not save to database. Make sure the Django server is running.</p>
-                <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 8 }}>{errMsg}</p>
-            </div>
+        <div style={{
+            maxWidth: 500, margin: '0 auto',
+            background: '#fff', borderRadius: 16,
+            border: '1px solid #E2E7ED',
+            boxShadow: '0 4px 16px rgba(42,111,151,0.08)',
+            padding: 36, textAlign: 'center',
+        }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>❌</div>
+            <h3 style={{ fontWeight: 700, fontSize: 20, color: '#E74C3C', marginBottom: 8 }}>Save Error</h3>
+            <p style={{ color: '#6B7D8F', fontSize: 15 }}>Could not save to database. Make sure the server is running.</p>
+            <p style={{ color: '#E74C3C', fontSize: 13, marginTop: 8 }}>{errMsg}</p>
         </div>
     );
 }
@@ -376,96 +437,88 @@ function ResultPhase() {
     if (loading) return (
         <div style={{ textAlign: 'center', padding: 48 }}>
             <div className="loader-ring" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--gray-400)' }}>Finalizing results…</p>
+            <p style={{ color: '#94A3B5' }}>Finalizing results…</p>
         </div>
     );
 
     if (!assessment) return (
-        <div className="card shadow-2xl border-0 p-20 text-center bg-white rounded-[40px]">
-            <p style={{ color: 'var(--gray-500)' }}>Assessment summary not available.</p>
+        <div style={{
+            maxWidth: 500, margin: '0 auto',
+            background: '#fff', borderRadius: 16, padding: 40,
+            textAlign: 'center', border: '1px solid #E2E7ED',
+        }}>
+            <p style={{ color: '#6B7D8F', fontSize: 15 }}>Assessment summary not available.</p>
         </div>
     );
 
-    const { total_score, ml_prediction, ml_dementia_probability, orientation_score, memory_score, executive_score, created_at } = assessment;
-
+    const { total_score, ml_prediction, orientation_score, memory_score, executive_score } = assessment;
     const pct = Math.round((total_score / 30) * 100);
+
     const getClassification = () => {
-        if (pct >= 85) return {
-            text: 'No Dementia Detected',
-            color: '#059669',
-            icon: '✅',
-            desc: 'Your cognitive health is excellent (above 85%). No significant markers detected at this time.',
-            badge: 'NORMAL'
-        };
-        if (pct >= 40) return {
-            text: 'Moderate Cognitive Concern',
-            color: '#D97706',
-            icon: '⚠️',
-            desc: 'Moderate cognitive concerns detected (40-85%). We recommend a clinical follow-up for monitoring.',
-            badge: 'MODERATE'
-        };
-        return {
-            text: 'Significant Clinical Flag',
-            color: '#DC2626',
-            icon: '🚨',
-            desc: 'Romba demtasis iruku doctgor poarunga (below 40%). Professional medical evaluation is urgently required.',
-            badge: 'SEE DOCTOR'
-        };
+        if (pct >= 85) return { text: 'Low Risk — Normal', color: '#6BCB77', bg: '#E3F7E6', icon: '✅', desc: 'Your cognitive health is excellent. No significant markers detected.' };
+        if (pct >= 40) return { text: 'Moderate Risk', color: '#F0AD4E', bg: '#FFF6E5', icon: '⚠️', desc: 'Moderate concerns detected. We recommend a clinical follow-up.' };
+        return { text: 'High Risk', color: '#E74C3C', bg: '#FDEAEA', icon: '🚨', desc: 'Significant indicators detected. Professional evaluation is strongly recommended.' };
     };
 
     const c = getClassification();
 
     return (
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
-            <div className="card shadow-2xl border-0 bg-white overflow-hidden rounded-[40px] mb-8">
-                <div style={{ background: `linear-gradient(135deg, ${c.color}, #000)` }} className="p-12 text-center text-white">
-                    <div className="text-7xl mb-6">{c.icon}</div>
-                    <div className="inline-block bg-white/20 px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border border-white/10">{c.badge}</div>
-                    <h2 className="text-4xl font-black uppercase tracking-tighter mb-4">{c.text}</h2>
-                    <p className="text-lg font-serif italic text-white/70 max-w-lg mx-auto leading-relaxed mb-8">"{c.desc}"</p>
-
-                    <div className="inline-flex items-baseline gap-4 bg-black/20 p-8 rounded-[32px] border border-white/5">
-                        <span className="text-8xl font-black tracking-tighter">{pct}%</span>
-                        <div className="text-left">
-                            <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Diagnostic Score</div>
-                            <div className="text-xl font-black">{total_score}<span className="opacity-50 text-sm">/30</span></div>
+        <div style={{ maxWidth: 700, margin: '0 auto' }}>
+            <div style={{
+                background: '#fff', borderRadius: 16,
+                border: '1px solid #E2E7ED',
+                boxShadow: '0 4px 20px rgba(42,111,151,0.08)',
+                overflow: 'hidden', marginBottom: 20,
+            }}>
+                {/* Header */}
+                <div style={{ background: c.bg, borderBottom: `3px solid ${c.color}`, padding: '36px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>{c.icon}</div>
+                    <h2 style={{ fontSize: 26, fontWeight: 700, color: '#1F2F3D', marginBottom: 8 }}>{c.text}</h2>
+                    <p style={{ fontSize: 15, color: '#6B7D8F', maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>{c.desc}</p>
+                    <div style={{
+                        display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                        background: 'rgba(255,255,255,0.8)', padding: '16px 28px',
+                        borderRadius: 16, marginTop: 20,
+                        boxShadow: `0 4px 12px ${c.color}20`,
+                    }}>
+                        <span style={{ fontSize: 52, fontWeight: 800, color: c.color }}>{pct}%</span>
+                        <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#94A3B5', textTransform: 'uppercase' }}>Score</div>
+                            <div style={{ fontSize: 18, fontWeight: 700, color: '#1F2F3D' }}>{total_score}<span style={{ opacity: 0.5, fontSize: 14 }}>/30</span></div>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-12">
-                    <div className="grid grid-cols-3 gap-6 mb-10">
+                {/* Scores */}
+                <div style={{ padding: 36 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
                         {[
-                            { label: 'Orientation', score: orientation_score, color: 'var(--primary)' },
-                            { label: 'Memory', score: memory_score, color: 'var(--accent)' },
-                            { label: 'Executive', score: executive_score, color: 'var(--teal)' },
+                            { label: 'Orientation', score: orientation_score, color: '#2A6F97' },
+                            { label: 'Memory', score: memory_score, color: '#3A8FBF' },
+                            { label: 'Executive', score: executive_score, color: '#6BCB77' },
                         ].map(s => (
-                            <div key={s.label} className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                                <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">{s.label}</div>
-                                <div className="text-2xl font-black" style={{ color: s.color }}>{s.score}<span className="text-xs opacity-30 ml-1">/10</span></div>
+                            <div key={s.label} style={{ background: '#F4F6F9', padding: 20, borderRadius: 12, textAlign: 'center' }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#94A3B5', textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
+                                <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{s.score}<span style={{ fontSize: 13, opacity: 0.4 }}>/10</span></div>
                             </div>
                         ))}
                     </div>
 
-                    <div className="bg-emerald-50 p-6 rounded-2xl flex items-center gap-4 border border-emerald-100 mb-10">
-                        <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black">✓</div>
-                        <p className="text-sm font-bold text-emerald-800">Your secure clinical report has been automatically synchronized with your medical portal.</p>
+                    <div style={{ background: '#E3F7E6', padding: '14px 18px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, border: '1px solid #B8E6BF' }}>
+                        <span style={{ fontSize: 18 }}>✅</span>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: '#2D7A36' }}>Your clinical report has been securely saved.</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <button className="btn btn-primary py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-teal-900/10" onClick={() => navigate('/patient/results')}>
-                            View Technical Report →
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <button className="btn btn-primary" onClick={() => navigate('/patient/results')} style={{ padding: '14px 0', borderRadius: 10, fontSize: 15 }}>
+                            View Full Report →
                         </button>
-                        <button className="btn bg-gray-100 hover:bg-gray-200 text-gray-600 py-5 rounded-2xl font-black uppercase text-xs tracking-widest" onClick={() => window.location.reload()}>
+                        <button className="btn btn-secondary" onClick={() => window.location.reload()} style={{ padding: '14px 0', borderRadius: 10, fontSize: 15 }}>
                             Take Another Test
                         </button>
                     </div>
                 </div>
             </div>
-
-            <button className="w-full text-center text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-gray-600 transition-all" onClick={() => navigate('/patient')}>
-                Return to Dashboard
-            </button>
         </div>
     );
 }
@@ -480,25 +533,25 @@ function ExamHub({ onStart }) {
 
     const exams = [
         {
-            key: 'voice', icon: '🎙', title: 'Voice Test', marks: 40,
-            borderColor: '#2563EB', done: voiceDone,
+            key: 'voice', icon: '🎙️', title: 'Voice Test', marks: 40,
+            color: '#2A6F97', done: voiceDone,
             scoreText: voiceDone ? '40 / 40' : null,
             desc: 'Record your voice for 10–60 seconds. AI analyzes pause patterns, speech rate, and vocal biomarkers.',
             steps: ['Find a quiet room', 'Press Start and speak naturally', 'Talk about your day or read the prompt'],
         },
         {
             key: 'mmse', icon: '🧠', title: 'MMSE Questionnaire', marks: 30,
-            borderColor: '#0EA5E9', done: mmseDone,
+            color: '#3A8FBF', done: mmseDone,
             scoreText: mmseDone ? '30 marks done' : null,
             desc: 'Answer questions about orientation, memory, and executive function. Multiple-choice, ~5 minutes.',
             steps: ['No preparation needed', 'Answer each question honestly', 'Results analyzed instantly'],
         },
         {
-            key: 'moca', icon: '📋', title: 'MOCA Test', marks: 30,
-            borderColor: '#0D9488', done: mocaDone,
+            key: 'moca', icon: '📋', title: 'MoCA Test', marks: 30,
+            color: '#6BCB77', done: mocaDone,
             scoreText: mocaDone && mocaScore ? `${mocaScore} / 30` : null,
             desc: 'Montreal Cognitive Assessment: 10 interactive sections covering memory, attention, language, and more.',
-            steps: ['Allow microphone access', 'Complete each section in order', '5-minute delayed recall timer runs automatically'],
+            steps: ['Allow microphone access', 'Complete each section in order', '5-minute delayed recall'],
         },
     ];
 
@@ -509,47 +562,72 @@ function ExamHub({ onStart }) {
                 <p>Complete all 3 tests to get your full cognitive score out of 100</p>
             </div>
 
-            <div style={{ background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 10, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Progress bar */}
+            <div style={{
+                background: '#fff', border: '1px solid #E2E7ED', borderRadius: 12,
+                padding: '18px 24px', marginBottom: 24,
+                display: 'flex', alignItems: 'center', gap: 20,
+                boxShadow: '0 2px 8px rgba(42,111,151,0.05)',
+            }}>
                 <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)' }}>Progress</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{completedCount} / 3 completed</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#4A5D6F' }}>Overall Progress</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#2A6F97' }}>{completedCount} / 3 completed</span>
                     </div>
                     <div className="progress">
                         <div className="progress-bar blue" style={{ width: `${(completedCount / 3) * 100}%` }} />
                     </div>
                 </div>
                 {completedCount === 3 && (
-                    <span style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '4px 14px', borderRadius: 20, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>✓ All done!</span>
+                    <span style={{
+                        background: '#E3F7E6', color: '#2D7A36',
+                        padding: '6px 16px', borderRadius: 20,
+                        fontWeight: 600, fontSize: 14, flexShrink: 0,
+                    }}>✓ All done!</span>
                 )}
             </div>
 
+            {/* Exam cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {exams.map(exam => (
-                    <div key={exam.key} style={{ background: '#fff', border: '1px solid var(--gray-200)', borderLeft: `4px solid ${exam.borderColor}`, borderRadius: 10, padding: 24 }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                            <div style={{ flex: 1, minWidth: 220 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: 22 }}>{exam.icon}</span>
-                                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', margin: 0 }}>{exam.title}</h3>
-                                    <span style={{ fontSize: 12, color: 'var(--gray-400)', fontWeight: 600 }}>— {exam.marks} marks</span>
+                    <div key={exam.key} style={{
+                        background: '#fff', border: '1px solid #E2E7ED',
+                        borderLeft: `5px solid ${exam.color}`,
+                        borderRadius: 12, padding: 28,
+                        boxShadow: '0 2px 8px rgba(42,111,151,0.05)',
+                        transition: 'all 0.2s',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 240 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 24 }}>{exam.icon}</span>
+                                    <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1F2F3D', margin: 0 }}>{exam.title}</h3>
+                                    <span style={{ fontSize: 13, color: '#94A3B5', fontWeight: 500 }}>— {exam.marks} marks</span>
                                     {exam.done && (
-                                        <span style={{ background: 'var(--success-light)', color: 'var(--success)', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
+                                        <span style={{
+                                            background: '#E3F7E6', color: '#2D7A36',
+                                            borderRadius: 20, padding: '3px 12px',
+                                            fontSize: 13, fontWeight: 600,
+                                        }}>
                                             ✓ {exam.scoreText || 'Done'}
                                         </span>
                                     )}
                                 </div>
-                                <p style={{ fontSize: 13, color: 'var(--gray-500)', lineHeight: 1.6, marginBottom: 10 }}>{exam.desc}</p>
+                                <p style={{ fontSize: 15, color: '#6B7D8F', lineHeight: 1.6, marginBottom: 12 }}>{exam.desc}</p>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                     {exam.steps.map((s, i) => (
-                                        <span key={i} style={{ fontSize: 11, background: 'var(--gray-100)', color: 'var(--gray-600)', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>
+                                        <span key={i} style={{
+                                            fontSize: 12, background: '#F4F6F9',
+                                            color: '#4A5D6F', borderRadius: 6,
+                                            padding: '4px 10px', fontWeight: 500,
+                                        }}>
                                             {i + 1}. {s}
                                         </span>
                                     ))}
                                 </div>
                             </div>
                             <div style={{ flexShrink: 0, paddingTop: 4 }}>
-                                <button className="btn btn-primary" style={{ background: exam.borderColor }} onClick={() => onStart(exam.key)}>
+                                <button className="btn btn-primary" style={{ background: exam.color, fontSize: 15 }} onClick={() => onStart(exam.key)}>
                                     {exam.done ? '↻ Retake' : '▶ Start'} Test
                                 </button>
                             </div>
@@ -559,13 +637,18 @@ function ExamHub({ onStart }) {
             </div>
 
             {completedCount === 3 && (
-                <div style={{ marginTop: 20, padding: 16, background: 'var(--success-light)', border: '1px solid #6EE7B7', borderRadius: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontSize: 24 }}>🎉</span>
-                        <div>
-                            <p style={{ fontWeight: 700, color: '#065F46' }}>All 3 tests complete!</p>
-                            <p style={{ fontSize: 13, color: '#047857' }}>View your full results in <a href="/patient/results" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>My Reports</a>.</p>
-                        </div>
+                <div style={{
+                    marginTop: 20, padding: '16px 20px',
+                    background: '#E3F7E6', border: '1px solid #B8E6BF',
+                    borderRadius: 12,
+                    display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                    <span style={{ fontSize: 24 }}>🎉</span>
+                    <div>
+                        <p style={{ fontWeight: 700, color: '#2D7A36', fontSize: 15 }}>All 3 tests complete!</p>
+                        <p style={{ fontSize: 14, color: '#47875F' }}>
+                            View your full results in <a href="/patient/results" style={{ color: '#2A6F97', textDecoration: 'underline', fontWeight: 600 }}>My Reports</a>.
+                        </p>
                     </div>
                 </div>
             )}
@@ -591,7 +674,7 @@ export default function PatientTest() {
                             <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
                         </div>
                         <div className="page-header">
-                            <h2>Voice Test <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray-400)' }}>— 40 marks</span></h2>
+                            <h2>Voice Test <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 40 marks</span></h2>
                             <p>Speak naturally for 10–60 seconds about your day or read the suggested prompt.</p>
                         </div>
                         <VoicePhase onDone={() => { sessionStorage.setItem('voice_exam_done', '1'); back(); }} />
@@ -604,7 +687,7 @@ export default function PatientTest() {
                             <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
                         </div>
                         <div className="page-header">
-                            <h2>MMSE Questionnaire <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--gray-400)' }}>— 30 marks</span></h2>
+                            <h2>MMSE Questionnaire <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 30 marks</span></h2>
                             <p>Answer questions about orientation, memory, and executive function.</p>
                         </div>
                         <QuizPhase onDone={() => { sessionStorage.setItem('mmse_exam_done', '1'); back(); }} />

@@ -173,7 +173,7 @@ export async function recordTaskCompletion(planId, taskId, notes = '') {
 }
 
 export async function addPatientByEmail(email) {
-    const res = await apiFetch('/doctor/add-patient', {
+    const res = await apiFetch('/doctor/add-patient/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -182,13 +182,13 @@ export async function addPatientByEmail(email) {
 }
 
 export async function getDoctorCompletions() {
-    const res = await apiFetch('/doctor/completions');
+    const res = await apiFetch('/doctor/completions/');
     return res.json();
 }
 export async function ingestPatientPDF(file) {
     const formData = new FormData();
     formData.append('report', file);
-    const res = await apiFetch('/doctor/extract-patient', {
+    const res = await apiFetch('/doctor/extract-patient/', {
         method: 'POST',
         body: formData,
     });
