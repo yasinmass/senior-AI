@@ -3,10 +3,14 @@ Django settings for HEALTHCARE_HACK project.
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-healthcare-hack-secret-key-change-in-production'
+# Load environment variables from .env file up one level
+load_dotenv(os.path.join(BASE_DIR.parent, '.env'))
+
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-healthcare-hack-secret-key-change-in-production')
 
 DEBUG = True
 
@@ -97,7 +101,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Groq API key for AI Companion
-GROQ_API_KEY = "REMOVED_API_KEY"
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', "REMOVED_API_KEY")
 
 # Translation cache — stores LibreTranslate results for 7 days
 CACHES = {

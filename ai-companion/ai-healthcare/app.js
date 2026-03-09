@@ -95,7 +95,7 @@ RULE 3: There is no third option. No mixing. No Tanglish.
 // 3.  STATE & SETTINGS
 // ─────────────────────────────────────────────────
 
-let GROQ_API_KEY = localStorage.getItem('nanbhan_key') || 'REMOVED_API_KEY';
+let GROQ_API_KEY = localStorage.getItem('nanbhan_key') || '';
 let AUTO_SPEAK = localStorage.getItem('nanbhan_speak') !== 'false';
 
 // Recognition language: 'ta-IN' for Tamil, 'en-IN' for English

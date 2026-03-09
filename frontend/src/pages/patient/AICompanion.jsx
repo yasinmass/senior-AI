@@ -21,7 +21,7 @@ function getTime() {
 }
 
 const API_BASE = '/api';
-const GROQ_KEY = 'REMOVED_API_KEY';
+const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
 
 export default function AICompanion() {
 
