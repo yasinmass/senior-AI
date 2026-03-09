@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../utils/api';
+import { login, getMyProfile } from '../utils/api';
 
 export default function PatientLogin() {
     const navigate = useNavigate();
@@ -15,10 +15,18 @@ export default function PatientLogin() {
         try {
             const data = await login(email, password);
             if (data.success) {
-                sessionStorage.setItem('patient_id', data.patient.id);
-                sessionStorage.setItem('patient_name', data.patient.name);
-                sessionStorage.setItem('patient_email', data.patient.email);
-                sessionStorage.setItem('role', 'patient');
+                localStorage.clear(); // clear any stale role from previous login
+
+                // Get profile to store preferred language
+                const profileRes = await getMyProfile();
+                if (profileRes.success && profileRes.patient) {
+                    localStorage.setItem('patient_language', profileRes.patient.preferred_lang || 'en');
+                }
+
+                localStorage.setItem('patient_id', data.patient.id);
+                localStorage.setItem('patient_name', data.patient.name);
+                localStorage.setItem('patient_email', data.patient.email);
+                localStorage.setItem('role', 'patient');
                 navigate('/patient');
             } else {
                 setError(data.error || 'Invalid credentials.');
@@ -48,7 +56,7 @@ export default function PatientLogin() {
                     </div>
                     <div style={{ textAlign: 'center' }}>
                         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2F3D' }}>
-                            NeuroScan <span style={{ color: '#2A6F97' }}>AI</span>
+                            SeniorMind <span style={{ color: '#14bdac' }}>AI</span>
                         </h1>
                         <p style={{ fontSize: 13, fontWeight: 500, color: '#94A3B5', marginTop: 4 }}>Patient Portal</p>
                     </div>

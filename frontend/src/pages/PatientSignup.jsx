@@ -5,7 +5,7 @@ import { signup } from '../utils/api';
 export default function PatientSignup() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        name: '', email: '', password: '', age: '', phone: ''
+        name: '', email: '', password: '', age: '', phone: '', preferred_lang: 'en'
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,10 +18,11 @@ export default function PatientSignup() {
         try {
             const data = await signup(formData);
             if (data.success) {
-                sessionStorage.setItem('patient_id', data.patient.id);
-                sessionStorage.setItem('patient_name', data.patient.name);
-                sessionStorage.setItem('patient_email', data.patient.email);
-                sessionStorage.setItem('role', 'patient');
+                localStorage.setItem('patient_id', data.patient.id);
+                localStorage.setItem('patient_name', data.patient.name);
+                localStorage.setItem('patient_email', data.patient.email);
+                localStorage.setItem('patient_language', formData.preferred_lang);
+                localStorage.setItem('role', 'patient');
                 navigate('/patient');
             } else {
                 setError(data.error || 'Signup failed.');
@@ -60,7 +61,7 @@ export default function PatientSignup() {
                     </div>
                     <div style={{ textAlign: 'center' }}>
                         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2F3D' }}>
-                            NeuroScan <span style={{ color: '#2A6F97' }}>AI</span>
+                            SeniorMind <span style={{ color: '#14bdac' }}>AI</span>
                         </h1>
                         <p style={{ fontSize: 13, fontWeight: 500, color: '#94A3B5', marginTop: 4 }}>Create Your Account</p>
                     </div>
@@ -117,6 +118,50 @@ export default function PatientSignup() {
                                     onFocus={e => e.target.style.borderColor = '#2A6F97'} onBlur={e => e.target.style.borderColor = '#E2E7ED'} />
                             </div>
                         </div>
+
+                        {/* Language Selection */}
+                        <div style={{ marginBottom: 32, background: '#F8FAFC', padding: 20, borderRadius: 16, border: '1px solid #E2E7ED' }}>
+                            <label style={{ ...labelStyle, fontSize: 16, marginBottom: 12 }}>What is your preferred language?</label>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                                {[
+                                    { code: 'en', flag: '🇬🇧', label: 'English' },
+                                    { code: 'ta', flag: '🇮🇳', label: 'தமிழ்', sub: 'Tamil' },
+                                    { code: 'hi', flag: '🇮🇳', label: 'हिंदी', sub: 'Hindi' }
+                                ].map(lang => {
+                                    const isSelected = formData.preferred_lang === lang.code;
+                                    return (
+                                        <div
+                                            key={lang.code}
+                                            onClick={() => setFormData({ ...formData, preferred_lang: lang.code })}
+                                            style={{
+                                                background: isSelected ? '#14bdac' : '#ffffff',
+                                                border: `2px solid ${isSelected ? '#14bdac' : '#E2E7ED'}`,
+                                                borderRadius: 12,
+                                                padding: '16px 8px',
+                                                textAlign: 'center',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                color: isSelected ? '#fff' : '#1F2F3D',
+                                                minHeight: '100px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: 28, marginBottom: 8 }}>{lang.flag}</span>
+                                            <span style={{ fontSize: 16, fontWeight: 700 }}>{lang.label}</span>
+                                            {lang.sub && <span style={{ fontSize: 12, opacity: 0.8 }}>{lang.sub}</span>}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            <p style={{ fontSize: 12, color: '#6B7D8F', marginTop: 12, textAlign: 'center' }}>
+                                We will use this language everywhere including voice instructions.
+                            </p>
+                        </div>
+
 
                         <button
                             type="submit"

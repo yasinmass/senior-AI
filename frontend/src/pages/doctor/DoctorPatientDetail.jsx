@@ -13,6 +13,7 @@ export default function DoctorPatientDetail() {
     const navigate = useNavigate();
     const [patient, setPatient] = useState(null);
     const [assessments, setAssessments] = useState([]);
+    const [soulConnections, setSoulConnections] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -23,6 +24,11 @@ export default function DoctorPatientDetail() {
                 if (data.success) {
                     setPatient(data.patient);
                     setAssessments(data.assessments);
+                    const sc = data.soul_connections || [];
+                    console.log('[DEBUG] soul_connections from API:', sc);
+                    setSoulConnections(sc);
+                } else {
+                    console.error('[DEBUG] API returned error:', data);
                 }
             } catch (err) {
                 console.error("Failed to load patient detail:", err);
@@ -169,6 +175,53 @@ export default function DoctorPatientDetail() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+            {/* Soul Connect History */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-12 overflow-hidden">
+                <div className="px-8 py-5 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">🤝 Soul Connect — Daily Check-In</h3>
+                    <span className="text-xs text-gray-400 font-medium">{soulConnections.length} session(s)</span>
+                </div>
+                {soulConnections.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 36, marginBottom: 10 }}>🤝</div>
+                        <p className="text-sm text-gray-400 italic">No daily check-in responses yet. They will appear here automatically once the patient completes a Soul Connect session.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Date</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">How is your day?</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Did you eat well?</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Did you exercise?</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Did you sleep well?</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {soulConnections.map(sc => (
+                                    <tr key={sc.id}>
+                                        <td className="px-6 py-4">
+                                            <p className="text-xs font-bold text-gray-800">{sc.created_at}</p>
+                                            <p className="text-[10px] text-gray-400">{sc.language === 'ta' ? 'Tamil' : 'English'}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-gray-700">{sc.q1_answer || '—'}</td>
+                                        <td className="px-6 py-4 text-xs">
+                                            <span className={`font-bold ${sc.q2_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}`}>{sc.q2_answer || '—'}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            <span className={`font-bold ${sc.q3_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}`}>{sc.q3_answer || '—'}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-xs">
+                                            <span className={`font-bold ${sc.q4_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}`}>{sc.q4_answer || '—'}</span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </DashboardLayout>
     );

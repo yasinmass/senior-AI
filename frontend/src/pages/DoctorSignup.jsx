@@ -19,10 +19,10 @@ export default function DoctorSignup() {
         try {
             const data = await doctorSignup(formData);
             if (data.success) {
-                sessionStorage.setItem('doctor_id', data.doctor.id);
-                sessionStorage.setItem('doctor_name', data.doctor.name);
-                sessionStorage.setItem('doctor_email', data.doctor.email);
-                sessionStorage.setItem('role', 'doctor');
+                localStorage.setItem('doctor_id', data.doctor.id);
+                localStorage.setItem('doctor_name', data.doctor.name);
+                localStorage.setItem('doctor_email', data.doctor.email);
+                localStorage.setItem('role', 'doctor');
                 navigate('/doctor');
             } else {
                 setError(data.error || 'Signup failed.');
@@ -59,7 +59,7 @@ export default function DoctorSignup() {
                     </div>
                     <div style={{ textAlign: 'center' }}>
                         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1F2F3D' }}>
-                            NeuroScan <span style={{ color: '#2A6F97' }}>AI</span>
+                            SeniorMind <span style={{ color: '#14bdac' }}>AI</span>
                         </h1>
                         <p style={{ fontSize: 13, fontWeight: 500, color: '#94A3B5', marginTop: 4 }}>Professional Enrollment</p>
                     </div>

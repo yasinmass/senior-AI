@@ -16,7 +16,6 @@ export default function DoctorPatients() {
     const [loading, setLoading] = useState(true);
 
     // Enrollment State
-    const [showEnroll, setShowEnroll] = useState(false);
     const [enrollEmail, setEnrollEmail] = useState('');
     const [enrollLoading, setEnrollLoading] = useState(false);
     const [enrollMessage, setEnrollMessage] = useState({ text: '', type: '' });
@@ -47,7 +46,6 @@ export default function DoctorPatients() {
                 setEnrollMessage({ text: res.message, type: 'success' });
                 setEnrollEmail('');
                 loadPatients(); // Refresh list
-                setTimeout(() => setShowEnroll(false), 2000);
             } else {
                 setEnrollMessage({ text: res.error, type: 'error' });
             }
@@ -70,7 +68,6 @@ export default function DoctorPatients() {
             if (res.success) {
                 setEnrollMessage({ text: `Ingestion successful! Patient "${res.patient.name}" has been linked to your registry.`, type: 'success' });
                 loadPatients();
-                setTimeout(() => setShowEnroll(false), 3000);
             } else {
                 setEnrollMessage({ text: res.error, type: 'error' });
             }
@@ -95,83 +92,75 @@ export default function DoctorPatients() {
                     <h2 className="text-2xl font-bold text-gray-800">Registry Management</h2>
                     <p className="text-gray-500 text-sm italic">Full clinical directory of enrolled patients for maintenance monitoring.</p>
                 </div>
-                <button
-                    onClick={() => setShowEnroll(!showEnroll)}
-                    className="bg-primary text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-wider shadow hover:bg-blue-700 transition-colors"
-                >
-                    {showEnroll ? 'Close Enrollment' : 'Enroll New Patient'}
-                </button>
             </div>
 
-            {showEnroll && (
-                <div className="mb-8 bg-gray-50 border border-gray-200 p-8 rounded-2xl animate-in slide-in-from-top duration-300">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="text-xs font-black text-gray-700 uppercase tracking-[0.2em]">Patient Enrollment Workspace</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        {/* Option 1: Manual Email */}
-                        <div className="border-r border-gray-200/50 pr-12">
-                            <span className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Method 01 — Manual Lookup</span>
-                            <form onSubmit={handleEnroll} className="space-y-4">
-                                <input
-                                    type="email"
-                                    required
-                                    placeholder="Enter patient system email..."
-                                    className="w-full bg-white border border-gray-200 px-4 py-4 rounded-xl text-sm font-bold focus:ring-2 ring-primary/20 outline-none transition-all"
-                                    value={enrollEmail}
-                                    onChange={e => setEnrollEmail(e.target.value)}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={enrollLoading}
-                                    className="w-full bg-gray-900 text-white px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 shadow-xl shadow-gray-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                                >
-                                    {enrollLoading ? 'Validating...' : 'Authorize Access'}
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* Option 2: PDF Ingestion */}
-                        <div>
-                            <span className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Method 02 — Automated Ingestion</span>
-                            <div className="relative group cursor-pointer h-full">
-                                <input
-                                    type="file"
-                                    accept=".pdf"
-                                    onChange={handlePDFUpload}
-                                    className="absolute inset-0 opacity-0 cursor-pointer z-10 h-full w-full"
-                                    disabled={enrollLoading}
-                                />
-                                <div className="border-2 border-dashed border-gray-200 group-hover:border-teal-500 group-hover:bg-teal-50/50 transition-all p-8 rounded-2xl text-center h-full flex flex-col justify-center items-center">
-                                    <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">📄</div>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] group-hover:text-teal-600">Upload Official Report</p>
-                                    <p className="text-[9px] text-gray-400 mt-3 font-medium italic">System extracts credentials automatically</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {enrollMessage.text && (
-                        <div className={`mt-8 p-5 rounded-2xl flex items-center gap-4 animate-in fade-in zoom-in duration-300 ${enrollMessage.type === 'success' ? 'bg-emerald-50 border border-emerald-100' :
-                            enrollMessage.type === 'info' ? 'bg-blue-50 border border-blue-100' :
-                                'bg-red-50 border border-red-100'}`}>
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg ${enrollMessage.type === 'success' ? 'bg-emerald-600 text-white' :
-                                enrollMessage.type === 'info' ? 'bg-blue-600 text-white' :
-                                    'bg-red-600 text-white'}`}>
-                                {enrollMessage.type === 'success' ? '✓' : enrollMessage.type === 'info' ? '⟳' : '!'}
-                            </div>
-                            <p className={`text-[11px] font-black uppercase tracking-tight ${enrollMessage.type === 'success' ? 'text-emerald-800' :
-                                enrollMessage.type === 'info' ? 'text-blue-800' :
-                                    'text-red-800'}`}>
-                                {enrollMessage.text}
-                            </p>
-                        </div>
-                    )}
-
-                    <p className="text-[9px] text-gray-400 mt-8 font-bold uppercase tracking-widest border-t border-gray-200/50 pt-6">Security Note: Linked patients will be able to see shared diagnostic history.</p>
+            <div className="mb-8 bg-gray-50 border border-gray-200 p-8 rounded-2xl">
+                <div className="flex justify-between items-center mb-8">
+                    <h3 className="text-xs font-black text-gray-700 uppercase tracking-[0.2em]">Patient Enrollment Workspace</h3>
                 </div>
-            )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    {/* Option 1: Manual Email */}
+                    <div className="border-r border-gray-200/50 pr-12">
+                        <span className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Method 01 — Manual Lookup</span>
+                        <form onSubmit={handleEnroll} className="space-y-4">
+                            <input
+                                type="email"
+                                required
+                                placeholder="Enter patient system email..."
+                                className="w-full bg-white border border-gray-200 px-4 py-4 rounded-xl text-sm font-bold focus:ring-2 ring-primary/20 outline-none transition-all"
+                                value={enrollEmail}
+                                onChange={e => setEnrollEmail(e.target.value)}
+                            />
+                            <button
+                                type="submit"
+                                disabled={enrollLoading}
+                                className="w-full bg-gray-900 text-white px-6 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-50 shadow-xl shadow-gray-200 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                {enrollLoading ? 'Validating...' : 'Authorize Access'}
+                            </button>
+                        </form>
+                    </div>
+
+                    {/* Option 2: PDF Ingestion */}
+                    <div>
+                        <span className="block text-[9px] font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Method 02 — Automated Ingestion</span>
+                        <div className="relative group cursor-pointer h-full">
+                            <input
+                                type="file"
+                                accept=".pdf"
+                                onChange={handlePDFUpload}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10 h-full w-full"
+                                disabled={enrollLoading}
+                            />
+                            <div className="border-2 border-dashed border-gray-200 group-hover:border-teal-500 group-hover:bg-teal-50/50 transition-all p-8 rounded-2xl text-center h-full flex flex-col justify-center items-center">
+                                <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">📄</div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] group-hover:text-teal-600">Upload Official Report</p>
+                                <p className="text-[9px] text-gray-400 mt-3 font-medium italic">System extracts credentials automatically</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {enrollMessage.text && (
+                    <div className={`mt-8 p-5 rounded-2xl flex items-center gap-4 animate-in fade-in zoom-in duration-300 ${enrollMessage.type === 'success' ? 'bg-emerald-50 border border-emerald-100' :
+                        enrollMessage.type === 'info' ? 'bg-blue-50 border border-blue-100' :
+                            'bg-red-50 border border-red-100'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg ${enrollMessage.type === 'success' ? 'bg-emerald-600 text-white' :
+                            enrollMessage.type === 'info' ? 'bg-blue-600 text-white' :
+                                'bg-red-600 text-white'}`}>
+                            {enrollMessage.type === 'success' ? '✓' : enrollMessage.type === 'info' ? '⟳' : '!'}
+                        </div>
+                        <p className={`text-[11px] font-black uppercase tracking-tight ${enrollMessage.type === 'success' ? 'text-emerald-800' :
+                            enrollMessage.type === 'info' ? 'text-blue-800' :
+                                'text-red-800'}`}>
+                            {enrollMessage.text}
+                        </p>
+                    </div>
+                )}
+
+                <p className="text-[9px] text-gray-400 mt-8 font-bold uppercase tracking-widest border-t border-gray-200/50 pt-6">Security Note: Linked patients will be able to see shared diagnostic history.</p>
+            </div>
 
             <div className="flex flex-col md:flex-row gap-4 mb-8">
                 <div className="flex-1 relative">

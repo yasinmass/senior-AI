@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
 import { getClinicalPlans, recordTaskCompletion } from '../../utils/api';
+import { useLanguage } from '../../context/LanguageContext';
+
 
 const BRAIN_EXERCISES = [
     { id: 'meditation', name: 'Mindfulness Meditation', cat: 'Mental', dur: '10 min', desc: 'Deep breathing and focused awareness to reduce neuro-inflammation.' },
@@ -27,9 +29,11 @@ const TODAY = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
 export default function PatientSchedule() {
     const [plans, setPlans] = useState(null);
     const [activeType, setActiveType] = useState('exercise');
-    const [completed, setCompleted] = useState({}); // Stores { task_id: true }
+    const [completed, setCompleted] = useState({});
     const [activeDay, setActiveDay] = useState(TODAY);
     const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
+
 
     const loadPlans = async () => {
         setLoading(true);
@@ -99,13 +103,13 @@ export default function PatientSchedule() {
                 </div>
                 <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2 shadow-inner">
                     {[
-                        { id: 'exercise', label: 'Exercises', icon: '🧠' },
-                        { id: 'diet', label: 'Diet Chart', icon: '🥗' },
-                        { id: 'task', label: 'Tasks', icon: '📋' }
-                    ].map(t => (
-                        <button key={t.id} onClick={() => setActiveType(t.id)}
-                            className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 transition-all ${activeType === t.id ? 'bg-white text-teal-600 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}>
-                            <span>{t.icon}</span> {t.label}
+                        { id: 'exercise', label: t('home_exercises'), icon: '🧠' },
+                        { id: 'diet', label: t('home_diet'), icon: '🥗' },
+                        { id: 'task', label: t('home_tasks'), icon: '📋' }
+                    ].map(tab => (
+                        <button key={tab.id} onClick={() => setActiveType(tab.id)}
+                            className={`px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-3 transition-all ${activeType === tab.id ? 'bg-white text-teal-600 shadow-md' : 'text-gray-400 hover:text-gray-600'}`}>
+                            <span>{tab.icon}</span> {tab.label}
                         </button>
                     ))}
                 </div>
@@ -147,16 +151,15 @@ export default function PatientSchedule() {
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">
-                                {activeDay} {activeType === 'diet' ? 'Nutrients' : 'Interventions'} {activeDay === TODAY && <span className="text-teal-600 ml-2">— Today</span>}
+                                {activeDay} {activeType === 'diet' ? t('home_diet') : t('home_exercises')} {activeDay === TODAY && <span className="text-teal-600 ml-2">— {t('home_today_label')}</span>}
                             </h3>
-                            <span className="bg-gray-100 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-500">{activeDayTasks.length} Targets</span>
+                            <span className="bg-gray-100 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-gray-500">{activeDayTasks.length} {t('home_targets')}</span>
                         </div>
 
                         {activeDayTasks.length === 0 ? (
                             <div className="card border-2 border-dashed border-gray-100 p-20 text-center rounded-[40px] bg-gray-50/30">
                                 <div className="text-5xl mb-6 grayscale opacity-30">{activeType === 'diet' ? '🍽️' : '🧘'}</div>
-                                <h4 className="text-xl font-black text-gray-300 uppercase tracking-widest">No {activeType} scheduled</h4>
-                                <p className="text-gray-400 font-medium italic mt-2">Consult with clinical portal for customization.</p>
+                                <h4 className="text-xl font-black text-gray-300 uppercase tracking-widest">{t('home_no_tasks')}</h4>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 gap-6">
@@ -192,7 +195,7 @@ export default function PatientSchedule() {
                                                                 Commit Completion
                                                             </button>
                                                         ) : done ? (
-                                                            <span className="text-emerald-600 font-black text-[10px] uppercase italic">Verified Clinical Record</span>
+                                                            <span className="text-emerald-600 font-black text-[10px] uppercase italic">{t('home_done')}</span>
                                                         ) : (
                                                             <span className="text-gray-300 font-black text-[10px] uppercase italic">Await Active Day</span>
                                                         )}
@@ -211,7 +214,7 @@ export default function PatientSchedule() {
                 <div className="space-y-8">
                     <div className="card shadow-2xl border-0 bg-white p-10 rounded-[40px] relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                        <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Clinical Progress</h4>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">{t('home_progress')}</h4>
                         <div className="flex items-baseline gap-2 mb-2">
                             <span className="text-6xl font-black text-gray-900 tracking-tighter">{pct}%</span>
                             <span className="text-teal-600 text-xl font-black">↑</span>

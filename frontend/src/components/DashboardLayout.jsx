@@ -12,7 +12,9 @@ export default function DashboardLayout({ role, title, children }) {
         navigate('/');
     }
 
-    const name = (role === 'doctor' ? sessionStorage.getItem('doctor_name') : sessionStorage.getItem('patient_name')) || 'User';
+    const name = (role === 'doctor' || role === 'caretaker'
+        ? localStorage.getItem('doctor_name')
+        : localStorage.getItem('patient_name')) || 'User';
 
     return (
         <div className="dashboard-layout">
@@ -41,7 +43,7 @@ export default function DashboardLayout({ role, title, children }) {
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <span style={{ fontSize: 13, fontWeight: 500, color: '#94A3B5', borderRight: '1px solid #E2E7ED', paddingRight: 12 }}>
-                                {role === 'doctor' ? 'Clinical Portal' : 'Patient Portal'}
+                                {role === 'doctor' ? 'Clinical Portal' : role === 'caretaker' ? 'Caretaker Portal' : 'Patient Portal'}
                             </span>
                             <h1 style={{ fontSize: 18, fontWeight: 700, color: '#1F2F3D' }}>{title}</h1>
                         </div>

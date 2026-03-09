@@ -25,6 +25,12 @@ class Doctor(models.Model):
         verbose_name_plural = 'Doctors'
 
 
+LANGUAGE_CHOICES = [
+    ('en', 'English'),
+    ('ta', 'Tamil'),
+    ('hi', 'Hindi'),
+]
+
 class Patient(models.Model):
     """Stores registered user/patient information."""
     name = models.CharField(max_length=200)
@@ -33,6 +39,7 @@ class Patient(models.Model):
     age = models.IntegerField(null=True, blank=True)
     dob = models.DateField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
+    preferred_lang = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default='en')
     
     # NEW: Clinical connection to a doctor
     assigned_doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, blank=True, related_name='patients')
@@ -194,6 +201,9 @@ class DiaryEntry(models.Model):
     language       = models.CharField(max_length=10)
     mood_score     = models.IntegerField(null=True, blank=True)
     emotion        = models.CharField(max_length=50, null=True, blank=True)
+    sentiment      = models.CharField(max_length=10, null=True, blank=True)
+    crisis_flag    = models.BooleanField(default=False)
+    is_starred     = models.BooleanField(default=False)   # ← TASK 3: favourite
     created_at     = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -203,4 +213,64 @@ class DiaryEntry(models.Model):
         db_table = 'diary_entries'
         verbose_name = 'Diary Entry'
         verbose_name_plural = 'Diary Entries'
+        ordering = ['-is_starred', '-created_at']   # starred first, then newest
+
+
+
+class SoulConnect(models.Model):
+    """Stores the senior's daily check-in answers."""
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='soul_connections')
+    
+    q1_answer = models.TextField(blank=True, null=True)
+    q2_answer = models.TextField(blank=True, null=True)
+    q3_answer = models.TextField(blank=True, null=True)
+    q4_answer = models.TextField(blank=True, null=True)
+    
+    language = models.CharField(max_length=10, default='en')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'soul_connect_entries'
+        verbose_name = 'Soul Connect Entry'
+        verbose_name_plural = 'Soul Connect Entries'
         ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Soul Connect by {self.patient.name} on {self.created_at.strftime('%Y-%m-%d')}"
+
+
+class ChatHistory(models.Model):
+    """Stores AI Companion conversation messages per patient."""
+    patient     = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='chat_history')
+    role        = models.CharField(max_length=20)   # 'user' or 'assistant'
+    message     = models.TextField()
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"[{self.role}] {self.patient.name}: {self.message[:60]}"
+
+    class Meta:
+        db_table = 'chat_history'
+        verbose_name = 'Chat History'
+        verbose_name_plural = 'Chat Histories'
+        ordering = ['created_at']
+
+class DailyCheckin(models.Model):
+    """Stores the senior's daily check-in (Soul Connect) structured answers."""
+    patient      = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='daily_checkins')
+    date         = models.DateField(auto_now_add=True)
+    sleep_rating = models.IntegerField()  # 1=badly 4=very well
+    food_rating  = models.IntegerField()
+    day_rating   = models.IntegerField()
+    exercise     = models.IntegerField()  # 1=no 2=little 3=yes
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'daily_checkins'
+        unique_together = ['patient', 'date']
+        verbose_name = 'Daily Checkin'
+        verbose_name_plural = 'Daily Checkins'
+
+    def __str__(self):
+        return f"DailyCheckin by {self.patient.name} on {self.date}"
+

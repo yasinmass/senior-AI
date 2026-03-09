@@ -112,8 +112,8 @@ export default function Result() {
                 {/* Hidden registry ID for PDF extraction */}
                 <div className="hidden print:block mt-8 pt-6 border-t border-gray-200">
                     <p className="text-[10px] uppercase font-bold text-gray-400 mb-2">Clinical Registry Identification</p>
-                    <p className="text-xs font-bold text-gray-900">Name: {sessionStorage.getItem('patient_name')}</p>
-                    <p className="text-xs font-mono font-bold text-blue-600">System Registry Email: {sessionStorage.getItem('patient_email')}</p>
+                    <p className="text-xs font-bold text-gray-900">Name: {localStorage.getItem('patient_name')}</p>
+                    <p className="text-xs font-mono font-bold text-blue-600">System Registry Email: {localStorage.getItem('patient_email')}</p>
                 </div>
             </div>
         );

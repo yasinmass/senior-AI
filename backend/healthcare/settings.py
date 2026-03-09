@@ -79,7 +79,7 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Session settings
-SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_SAVE_EVERY_REQUEST = True
 
 # CORS settings — allow all origins in development
@@ -95,3 +95,14 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
 ]
+
+# Groq API key for AI Companion
+GROQ_API_KEY = "REMOVED_API_KEY"
+
+# Translation cache — stores LibreTranslate results for 7 days
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+

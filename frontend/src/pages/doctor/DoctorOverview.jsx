@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
-import { getDoctorStats, getDoctorPatients } from '../../utils/api';
+import { getDoctorStats, getDoctorPatients, getCaretakerDiaryAlerts } from '../../utils/api';
 
 function RiskBadge({ level }) {
     const cls = level === 'Low' ? 'badge-low' : level === 'Moderate' ? 'badge-moderate' : 'badge-high';
@@ -11,7 +11,9 @@ function RiskBadge({ level }) {
 export default function DoctorOverview() {
     const navigate = useNavigate();
     const [stats, setStats] = useState(null);
+    const [recentSC, setRecentSC] = useState([]);
     const [patients, setPatients] = useState([]);
+    const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -20,8 +22,13 @@ export default function DoctorOverview() {
             try {
                 const sData = await getDoctorStats();
                 const pData = await getDoctorPatients();
-                if (sData.success) setStats(sData.stats);
+                const aData = await getCaretakerDiaryAlerts();
+                if (sData.success) {
+                    setStats(sData.stats);
+                    setRecentSC(sData.recent_soul_connects || []);
+                }
                 if (pData.success) setPatients(pData.patients);
+                if (aData.success) setAlerts(aData.alerts || []);
             } catch (err) {
                 console.error("Dashboard failed to load data:", err);
             } finally {
@@ -39,7 +46,7 @@ export default function DoctorOverview() {
         </DashboardLayout>
     );
 
-    const docName = sessionStorage.getItem('doctor_name') || 'Medical Professional';
+    const docName = localStorage.getItem('doctor_name') || 'Medical Professional';
 
     const statCards = [
         { label: 'Total Patients', value: stats?.total_patients || 0, icon: '👥', color: 'var(--primary)', bg: 'var(--primary-pale)', change: 'Active database' },
@@ -57,17 +64,32 @@ export default function DoctorOverview() {
                 <div>
                     <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Clinical Portal</h5>
                     <h2 className="text-2xl font-bold text-gray-800">Welcome, Dr. {docName}</h2>
-                    <p className="text-gray-500 text-sm font-medium">NeuroScan Systems · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-gray-500 text-sm font-medium">SeniorMind AI · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
                 <div className="flex gap-3">
                     <button className="px-5 py-2.5 bg-gray-50 text-gray-600 font-bold text-xs rounded border border-gray-200 hover:bg-gray-100 transition-colors" onClick={() => navigate('/doctor/messages')}>
                         Clinical Messaging
                     </button>
-                    <button className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded shadow-sm hover:bg-blue-700 transition-colors" onClick={() => navigate('/doctor/patients')}>
-                        Clinical Registry
+                    <button className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-lg transition-colors"
+                        onClick={() => navigate('/doctor/patients')}>
+                        Clinical Registry →
                     </button>
                 </div>
             </div>
+
+            {/* Crisis Alerts Banner */}
+            {alerts.length > 0 && (
+                <div style={{ background: 'var(--danger)', color: '#fff', padding: '16px 24px', borderRadius: 12, marginBottom: 28, display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <div style={{ fontSize: 24 }}>⚠️</div>
+                    <div>
+                        <h3 style={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Urgent: AI Diary Crisis Detected</h3>
+                        <p style={{ fontSize: 13, fontWeight: 500 }}>
+                            {alerts.length} patient{alerts.length > 1 ? 's' : ''} triggered a crisis alert in their latest recordings.
+                            <button onClick={() => navigate('/doctor/diary-reports')} style={{ background: 'none', border: 'none', borderBottom: '1px solid #fff', color: '#fff', fontWeight: 700, marginLeft: 8, cursor: 'pointer' }}>View Reports</button>
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Stat Cards */}
             <div className="grid grid-cols-4 gap-6 mb-8">
@@ -141,6 +163,36 @@ export default function DoctorOverview() {
                         ))}
                     </div>
                 </div>
+            </div>
+
+            {/* Recent Soul Connects Panel */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-8 overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 flex justify-between items-center">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">🤝 Recent Soul Connects</h3>
+                </div>
+                {recentSC.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                        {recentSC.map(sc => (
+                            <div key={sc.id} className="p-5 hover:bg-gray-50 transition-colors cursor-pointer flex flex-col gap-2"
+                                onClick={() => navigate(`/doctor/patient/${sc.patient_id}`)}>
+                                <div className="flex justify-between items-center mb-1">
+                                    <div className="text-xs font-bold text-gray-800">{sc.patient_name}</div>
+                                    <div className="text-[10px] text-gray-400 font-medium">{sc.created_at}</div>
+                                </div>
+                                <div className="grid grid-cols-4 gap-4">
+                                    <div className="text-[10px] text-gray-500 italic truncate" title={sc.q1_answer}>"{sc.q1_answer}"</div>
+                                    <div className="text-[10px] font-bold"><span className="text-gray-400">Ate:</span> <span className={sc.q2_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}>{sc.q2_answer || '-'}</span></div>
+                                    <div className="text-[10px] font-bold"><span className="text-gray-400">Exer:</span> <span className={sc.q3_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}>{sc.q3_answer || '-'}</span></div>
+                                    <div className="text-[10px] font-bold"><span className="text-gray-400">Slept:</span> <span className={sc.q4_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}>{sc.q4_answer || '-'}</span></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-8 text-center text-gray-400 text-xs italic">
+                        No recent check-ins. Patient Soul Connect answers will appear here.
+                    </div>
+                )}
             </div>
 
             {/* Quick Directory Table */}

@@ -9,11 +9,34 @@ export async function apiFetch(path, options = {}) {
     return res;
 }
 
-// Auth Check
+// Auth Check — uses localStorage role as primary authority
+// to avoid cross-role session collision (doctor being mistaken for patient)
 export async function checkAuth() {
     try {
-        const res = await apiFetch('/me/');
-        if (res.ok) return { role: 'patient', data: await res.json() };
+        const storedRole = localStorage.getItem('role');
+
+        // If we have a stored role, ONLY check that role's endpoint
+        if (storedRole === 'patient') {
+            const res = await apiFetch('/me/');
+            if (res.ok) return { role: 'patient', data: await res.json() };
+            return null; // session expired
+        }
+
+        if (storedRole === 'doctor') {
+            const res = await apiFetch('/doctor/me/');
+            if (res.ok) return { role: 'doctor', data: await res.json() };
+            return null;
+        }
+
+        if (storedRole === 'caretaker') {
+            const res = await apiFetch('/doctor/me/');
+            if (res.ok) return { role: 'caretaker', data: await res.json() };
+            return null;
+        }
+
+        // No stored role — try both (first-time or cleared session)
+        const resPatient = await apiFetch('/me/');
+        if (resPatient.ok) return { role: 'patient', data: await resPatient.json() };
 
         const resDoc = await apiFetch('/doctor/me/');
         if (resDoc.ok) return { role: 'doctor', data: await resDoc.json() };
@@ -23,6 +46,7 @@ export async function checkAuth() {
         return null;
     }
 }
+
 
 // Patient Auth
 export async function login(email, password) {
@@ -40,6 +64,11 @@ export async function signup(userData) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
     });
+    return res.json();
+}
+
+export async function getMyProfile() {
+    const res = await apiFetch('/me/');
     return res.json();
 }
 
@@ -64,7 +93,7 @@ export async function doctorSignup(userData) {
 
 export async function logout() {
     await apiFetch('/logout/', { method: 'POST' });
-    sessionStorage.clear();
+    localStorage.clear();
     localStorage.clear();
 }
 
@@ -208,5 +237,65 @@ export async function recordDiary(audioBlob) {
 
 export async function getDiaryEntries() {
     const res = await apiFetch('/diary/entries/');
+    return res.json();
+}
+
+export async function getDoctorDiaryReports() {
+    const res = await apiFetch('/diary/doctor/reports/');
+    return res.json();
+}
+
+export async function getCaretakerDiaryReports() {
+    const res = await apiFetch('/diary/caretaker/reports/');
+    return res.json();
+}
+
+export async function getCaretakerDiaryAlerts() {
+    const res = await apiFetch('/diary/caretaker/alerts/');
+    return res.json();
+}
+
+export async function deleteDiaryEntry(id) {
+    const res = await apiFetch(`/diary/delete/${id}/`, { method: 'DELETE' });
+    return res.json();
+}
+
+export async function starDiaryEntry(id) {
+    const res = await apiFetch(`/diary/star/${id}/`, { method: 'PATCH' });
+    return res.json();
+}
+
+
+// Soul Connect & Daily Checkin
+export async function saveSoulConnect(data) {
+    const res = await apiFetch('/soul-connect/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+}
+
+export async function getSoulConnects() {
+    const res = await apiFetch('/soul-connect/');
+    return res.json();
+}
+
+export async function submitDailyCheckin(data) {
+    const res = await apiFetch('/checkin/submit/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+}
+
+export async function getCheckinToday() {
+    const res = await apiFetch('/checkin/today/');
+    return res.json();
+}
+
+export async function getCheckinHistory() {
+    const res = await apiFetch('/checkin/history/');
     return res.json();
 }

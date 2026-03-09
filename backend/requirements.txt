@@ -6,3 +6,4 @@ joblib
 librosa
 pypdf
 faster-whisper
+gtts

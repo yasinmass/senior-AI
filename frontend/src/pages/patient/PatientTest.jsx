@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { blobToWavBlob } from '../../utils/audioUtils';
 import { apiFetch } from '../../utils/api';
-import { t, getQuestions } from '../../utils/i18n';
+import { t as i18nT, getQuestions } from '../../utils/i18n';
 import { getFinalOutput, startReactionTimer, stopReactionTimer, getAverageReactionTime, resetReactionTimer } from '../../utils/scoring';
-import MOCATest from './MOCATest';
+import { useLanguage } from '../../context/LanguageContext';
+
 
 const CIRCUMFERENCE = 2 * Math.PI * 54;
 const MAX_DURATION = 60;
@@ -103,7 +104,7 @@ function VoicePhase({ onDone }) {
             mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
             mediaRecorder.onstop = async () => {
                 const dur = secondsRef.current;
-                sessionStorage.setItem('voice_biomarkers', JSON.stringify({
+                localStorage.setItem('voice_biomarkers', JSON.stringify({
                     pause_duration: parseFloat(totalSilenceRef.current.toFixed(2)),
                     word_count: wordCountRef.current,
                     speech_rate: dur > 0 ? parseFloat((wordCountRef.current / (dur / 60)).toFixed(2)) : 0,
@@ -121,7 +122,7 @@ function VoicePhase({ onDone }) {
                         const res = await apiFetch('/audio/analyze/', { method: 'POST', body: form });
                         const ml = await res.json();
                         if (ml.success) {
-                            sessionStorage.setItem('ml_result', JSON.stringify({
+                            localStorage.setItem('ml_result', JSON.stringify({
                                 ml_prediction: ml.ml_prediction,
                                 ml_dementia_probability: ml.ml_dementia_probability,
                                 ml_normal_probability: ml.ml_normal_probability,
@@ -300,14 +301,14 @@ function QuizPhase({ onDone }) {
         const scores = { orientation: counts.orientation * 2, memory: counts.memory * 2, executive: counts.executive * 2 };
         const finalResults = getFinalOutput(scores, avgRT);
         let voiceBio = {}; let mlRes = {};
-        try { voiceBio = JSON.parse(sessionStorage.getItem('voice_biomarkers') || '{}'); } catch { }
-        try { mlRes = JSON.parse(sessionStorage.getItem('ml_result') || '{}'); } catch { }
+        try { voiceBio = JSON.parse(localStorage.getItem('voice_biomarkers') || '{}'); } catch { }
+        try { mlRes = JSON.parse(localStorage.getItem('ml_result') || '{}'); } catch { }
         const payload = { ...finalResults, ...voiceBio, ...mlRes };
 
         try {
             const res = await apiFetch('/assessment/save/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
-            if (data.success) { sessionStorage.removeItem('voice_biomarkers'); sessionStorage.removeItem('ml_result'); onDone(); }
+            if (data.success) { localStorage.removeItem('voice_biomarkers'); localStorage.removeItem('ml_result'); onDone(); }
             else throw new Error(data.error || 'Save failed');
         } catch (e) { setErrMsg(e.message); setPhase('error'); }
     }
@@ -525,41 +526,33 @@ function ResultPhase() {
 
 // ── Exam Selection Hub ─────────────────────────────────────────────────────────
 function ExamHub({ onStart }) {
-    const voiceDone = !!sessionStorage.getItem('voice_exam_done');
-    const mmseDone = !!sessionStorage.getItem('mmse_exam_done');
-    const mocaDone = !!sessionStorage.getItem('moca_exam_done');
-    const mocaScore = sessionStorage.getItem('moca_score');
-    const completedCount = [voiceDone, mmseDone, mocaDone].filter(Boolean).length;
+    const { t } = useLanguage();
+    const voiceDone = !!localStorage.getItem('voice_exam_done');
+    const mmseDone = !!localStorage.getItem('mmse_exam_done');
+    const completedCount = [voiceDone, mmseDone].filter(Boolean).length;
 
     const exams = [
         {
-            key: 'voice', icon: '🎙️', title: 'Voice Test', marks: 40,
+            key: 'voice', icon: '🎙️', title: t('screening_voice_title'), marks: 40,
             color: '#2A6F97', done: voiceDone,
             scoreText: voiceDone ? '40 / 40' : null,
             desc: 'Record your voice for 10–60 seconds. AI analyzes pause patterns, speech rate, and vocal biomarkers.',
             steps: ['Find a quiet room', 'Press Start and speak naturally', 'Talk about your day or read the prompt'],
         },
         {
-            key: 'mmse', icon: '🧠', title: 'MMSE Questionnaire', marks: 30,
+            key: 'mmse', icon: '🧠', title: t('screening_mmse_title'), marks: 30,
             color: '#3A8FBF', done: mmseDone,
             scoreText: mmseDone ? '30 marks done' : null,
             desc: 'Answer questions about orientation, memory, and executive function. Multiple-choice, ~5 minutes.',
             steps: ['No preparation needed', 'Answer each question honestly', 'Results analyzed instantly'],
-        },
-        {
-            key: 'moca', icon: '📋', title: 'MoCA Test', marks: 30,
-            color: '#6BCB77', done: mocaDone,
-            scoreText: mocaDone && mocaScore ? `${mocaScore} / 30` : null,
-            desc: 'Montreal Cognitive Assessment: 10 interactive sections covering memory, attention, language, and more.',
-            steps: ['Allow microphone access', 'Complete each section in order', '5-minute delayed recall'],
         },
     ];
 
     return (
         <div>
             <div className="page-header">
-                <h2>AI Screening Tests</h2>
-                <p>Complete all 3 tests to get your full cognitive score out of 100</p>
+                <h2>{t('screening_title')}</h2>
+                <p>{t('screening_desc')}</p>
             </div>
 
             {/* Progress bar */}
@@ -572,18 +565,18 @@ function ExamHub({ onStart }) {
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: '#4A5D6F' }}>Overall Progress</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#2A6F97' }}>{completedCount} / 3 completed</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#2A6F97' }}>{completedCount} / 2 {t('screening_completed')}</span>
                     </div>
                     <div className="progress">
-                        <div className="progress-bar blue" style={{ width: `${(completedCount / 3) * 100}%` }} />
+                        <div className="progress-bar blue" style={{ width: `${(completedCount / 2) * 100}%` }} />
                     </div>
                 </div>
-                {completedCount === 3 && (
+                {completedCount === 2 && (
                     <span style={{
                         background: '#E3F7E6', color: '#2D7A36',
                         padding: '6px 16px', borderRadius: 20,
                         fontWeight: 600, fontSize: 14, flexShrink: 0,
-                    }}>✓ All done!</span>
+                    }}>✓ {t('screening_all_done')}</span>
                 )}
             </div>
 
@@ -628,7 +621,7 @@ function ExamHub({ onStart }) {
                             </div>
                             <div style={{ flexShrink: 0, paddingTop: 4 }}>
                                 <button className="btn btn-primary" style={{ background: exam.color, fontSize: 15 }} onClick={() => onStart(exam.key)}>
-                                    {exam.done ? '↻ Retake' : '▶ Start'} Test
+                                    {exam.done ? `↻ ${t('screening_retake')}` : `▶ ${t('screening_start')}`} {t('screening_test')}
                                 </button>
                             </div>
                         </div>
@@ -636,22 +629,8 @@ function ExamHub({ onStart }) {
                 ))}
             </div>
 
-            {completedCount === 3 && (
-                <div style={{
-                    marginTop: 20, padding: '16px 20px',
-                    background: '#E3F7E6', border: '1px solid #B8E6BF',
-                    borderRadius: 12,
-                    display: 'flex', alignItems: 'center', gap: 12,
-                }}>
-                    <span style={{ fontSize: 24 }}>🎉</span>
-                    <div>
-                        <p style={{ fontWeight: 700, color: '#2D7A36', fontSize: 15 }}>All 3 tests complete!</p>
-                        <p style={{ fontSize: 14, color: '#47875F' }}>
-                            View your full results in <a href="/patient/results" style={{ color: '#2A6F97', textDecoration: 'underline', fontWeight: 600 }}>My Reports</a>.
-                        </p>
-                    </div>
-                </div>
-            )}
+
+
         </div>
     );
 }
@@ -659,11 +638,12 @@ function ExamHub({ onStart }) {
 // ── Main Patient Test Page ─────────────────────────────────────────────────────
 export default function PatientTest() {
     const [mode, setMode] = useState('hub');
+    const { t } = useLanguage();
 
     function back() { setMode('hub'); }
 
     return (
-        <DashboardLayout role="patient" title="AI Screening">
+        <DashboardLayout role="patient" title={t('screening_title')}>
             <div className="fade-in" key={mode}>
 
                 {mode === 'hub' && <ExamHub onStart={setMode} />}
@@ -671,41 +651,29 @@ export default function PatientTest() {
                 {mode === 'voice' && (
                     <div>
                         <div style={{ marginBottom: 16 }}>
-                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
+                            <button className="btn btn-secondary btn-sm" onClick={back}>{t('screening_back')}</button>
                         </div>
                         <div className="page-header">
-                            <h2>Voice Test <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 40 marks</span></h2>
+                            <h2>{t('screening_voice_title')} <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 40 marks</span></h2>
                             <p>Speak naturally for 10–60 seconds about your day or read the suggested prompt.</p>
                         </div>
-                        <VoicePhase onDone={() => { sessionStorage.setItem('voice_exam_done', '1'); back(); }} />
+                        <VoicePhase onDone={() => { localStorage.setItem('voice_exam_done', '1'); back(); }} />
                     </div>
                 )}
 
                 {mode === 'mmse' && (
                     <div>
                         <div style={{ marginBottom: 16 }}>
-                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
+                            <button className="btn btn-secondary btn-sm" onClick={back}>{t('screening_back')}</button>
                         </div>
                         <div className="page-header">
-                            <h2>MMSE Questionnaire <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 30 marks</span></h2>
+                            <h2>{t('screening_mmse_title')} <span style={{ fontSize: 15, fontWeight: 400, color: '#94A3B5' }}>— 30 marks</span></h2>
                             <p>Answer questions about orientation, memory, and executive function.</p>
                         </div>
-                        <QuizPhase onDone={() => { sessionStorage.setItem('mmse_exam_done', '1'); back(); }} />
+                        <QuizPhase onDone={() => { localStorage.setItem('mmse_exam_done', '1'); back(); }} />
                     </div>
                 )}
 
-                {mode === 'moca' && (
-                    <div>
-                        <div style={{ marginBottom: 16 }}>
-                            <button className="btn btn-secondary btn-sm" onClick={back}>← Back to Tests</button>
-                        </div>
-                        <MOCATest embedded onComplete={(score) => {
-                            sessionStorage.setItem('moca_exam_done', '1');
-                            sessionStorage.setItem('moca_score', String(score));
-                            back();
-                        }} />
-                    </div>
-                )}
             </div>
         </DashboardLayout>
     );

@@ -224,11 +224,11 @@ export default function PatientResults() {
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
                                             <div>
                                                 <p style={{ fontSize: 12, color: '#94A3B5', fontWeight: 500 }}>Patient Name</p>
-                                                <p style={{ fontSize: 15, fontWeight: 600, color: '#1F2F3D' }}>{sessionStorage.getItem('patient_name')}</p>
+                                                <p style={{ fontSize: 15, fontWeight: 600, color: '#1F2F3D' }}>{localStorage.getItem('patient_name')}</p>
                                             </div>
                                             <div>
                                                 <p style={{ fontSize: 12, color: '#94A3B5', fontWeight: 500 }}>Email</p>
-                                                <p style={{ fontSize: 15, fontWeight: 600, color: '#2A6F97' }}>{sessionStorage.getItem('patient_email')}</p>
+                                                <p style={{ fontSize: 15, fontWeight: 600, color: '#2A6F97' }}>{localStorage.getItem('patient_email')}</p>
                                             </div>
                                             <div>
                                                 <p style={{ fontSize: 12, color: '#94A3B5', fontWeight: 500 }}>Assessment Date</p>

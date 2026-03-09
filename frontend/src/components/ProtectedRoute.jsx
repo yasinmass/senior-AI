@@ -39,7 +39,8 @@ export default function ProtectedRoute({ children, role: requiredRole }) {
     }
 
     if (requiredRole && auth.role !== requiredRole) {
-        return <Navigate to={auth.role === 'patient' ? '/patient' : '/doctor'} replace />;
+        const dest = auth.role === 'patient' ? '/patient' : auth.role === 'caretaker' ? '/caretaker' : '/doctor';
+        return <Navigate to={dest} replace />;
     }
 
     return children;

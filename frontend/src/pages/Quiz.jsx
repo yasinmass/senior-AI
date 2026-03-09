@@ -72,13 +72,13 @@ export default function Quiz() {
 
         let voiceBiomarkers = {};
         try {
-            const staged = sessionStorage.getItem('voice_biomarkers');
+            const staged = localStorage.getItem('voice_biomarkers');
             if (staged) voiceBiomarkers = JSON.parse(staged);
         } catch { /* noop */ }
 
         let mlResult = {};
         try {
-            const staged = sessionStorage.getItem('ml_result');
+            const staged = localStorage.getItem('ml_result');
             if (staged) mlResult = JSON.parse(staged);
         } catch { /* noop */ }
 
@@ -92,8 +92,8 @@ export default function Quiz() {
             });
             const data = await res.json();
             if (data.success) {
-                sessionStorage.removeItem('voice_biomarkers');
-                sessionStorage.removeItem('ml_result');
+                localStorage.removeItem('voice_biomarkers');
+                localStorage.removeItem('ml_result');
                 setPhase('done');
             } else {
                 throw new Error(data.error || 'Save failed');

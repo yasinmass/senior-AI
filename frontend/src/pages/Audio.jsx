@@ -117,7 +117,7 @@ export default function Audio() {
                 const finalWordCount = wordCountRef.current;
                 const speechRate = duration > 0 ? (finalWordCount / (duration / 60)).toFixed(2) : 0;
 
-                sessionStorage.setItem('voice_biomarkers', JSON.stringify({
+                localStorage.setItem('voice_biomarkers', JSON.stringify({
                     pause_duration: parseFloat(totalSilenceRef.current.toFixed(2)),
                     word_count: finalWordCount,
                     speech_rate: parseFloat(speechRate),
@@ -138,7 +138,7 @@ export default function Audio() {
                         });
                         const mlResult = await res.json();
                         if (mlResult.success) {
-                            sessionStorage.setItem('ml_result', JSON.stringify({
+                            localStorage.setItem('ml_result', JSON.stringify({
                                 ml_prediction: mlResult.ml_prediction,
                                 ml_dementia_probability: mlResult.ml_dementia_probability,
                                 ml_normal_probability: mlResult.ml_normal_probability,
