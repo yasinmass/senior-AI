@@ -28,19 +28,3 @@ navigation. Just voice.
 ## Status
 
 🚧 Currently in development — deployment coming soon.
-
-## Built At
-
-Kreative Genesis Hackathon
-KG College of Arts and Science (KGCAS)
-```
-
----
-
-### Why This Name
-```
-✅ seniormind-ai
-→ Clean and professional
-→ Easy to remember
-→ Shows up well in search
-→ Matches your brand name
