@@ -11,7 +11,7 @@ navigation. Just voice.
 
 ## Features
 
-🤖 **Mitra** — AI companion that listens and responds  
+🤖 **Bhavi** — AI companion that listens and responds  
 📔 **Voice Diary** — Speak your thoughts, AI saves them  
 💛 **Daily Check-in** — Voice-guided wellness questions  
 🎮 **Memory Game** — Cognitive training tracked by doctors  
