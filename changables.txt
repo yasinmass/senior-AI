@@ -1,0 +1,6 @@
+1.voice for navigation
+2.fix the dairy ( error - input voice is not properly shown in the dairy , it show anyother words even diff language)
+3.bhavi AI - test the ai ( not only biased on dairy , not hallucinate , speak based on user mood , voice to voice in eng / tamil ).
+4.change the loading animation (get your to suggest yasin )
+5.language(tamil/eng/hindi) of the entire patient platform should change with respect to the user selected language in my profile ( research about the model that is change the language in tamil/eng/hindi. or any api (only refer when the model for this not available)
+6.check the daily check-in ( voice in eng / tamil / hindi that is based on the user selected language in my profile)
