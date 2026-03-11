@@ -23,7 +23,7 @@ export const translations = {
 
         companion_title: "AI Companion",
         companion_subtitle: "Your friendly AI assistant for daily support.",
-        companion_greeting: "Hello! I am Mitra, your AI companion.",
+        companion_greeting: "Hello! I am Bhavi, your AI companion.",
         companion_mic_start: "Tap to Speak",
         companion_mic_stop: "Tap to Stop",
         companion_processing: "Processing your message...",
@@ -146,7 +146,7 @@ export const translations = {
 
         companion_title: "AI தோழர்",
         companion_subtitle: "உங்கள் நட்பான AI உதவியாளர்.",
-        companion_greeting: "வணக்கம்! நான் மித்ரா, உங்கள் AI தோழர்.",
+        companion_greeting: "வணக்கம்! நான் பவி, உங்கள் AI தோழர்.",
         companion_mic_start: "பேச தட்டவும்",
         companion_mic_stop: "நிறுத்த தட்டவும்",
         companion_processing: "உங்கள் செய்தியை செயலாக்குகிறோம்...",
@@ -269,7 +269,7 @@ export const translations = {
 
         companion_title: "AI साथी",
         companion_subtitle: "आपका मित्रवत AI सहायक।",
-        companion_greeting: "नमस्ते! मैं मित्रा हूं, आपका AI साथी।",
+        companion_greeting: "नमस्ते! मैं भवी हूं, आपका AI साथी।",
         companion_mic_start: "बोलने के लिए टैप करें",
         companion_mic_stop: "रोकने के लिए टैप करें",
         companion_processing: "आपका संदेश प्रोसेस हो रहा है...",

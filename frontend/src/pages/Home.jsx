@@ -24,14 +24,14 @@ function Logo({ size = 40 }) {
 const FEATURES = [
     {
         icon: '🤖',
-        title: 'AI Companion — Mitra',
+        title: 'AI Companion — Bhavi',
         desc: 'Your personal AI friend who listens, remembers your diary, and speaks back in your language. Always available, always caring.',
         color: '#2A6F97',
     },
     {
         icon: '📔',
         title: 'Voice Diary',
-        desc: 'Simply speak your thoughts in Tamil, Hindi, or English. Mitra converts your voice to text and analyses your mood every day.',
+        desc: 'Simply speak your thoughts in Tamil, Hindi, or English. Bhavi converts your voice to text and analyses your mood every day.',
         color: '#14bdac',
     },
     {
@@ -74,7 +74,7 @@ const HOW = [
         icon: '🧠',
         step: '02',
         title: 'AI Analyses',
-        desc: 'Mitra listens, analyses mood, detects cognitive patterns, and remembers context from past conversations.',
+        desc: 'Bhavi listens, analyses mood, detects cognitive patterns, and remembers context from past conversations.',
         color: '#14bdac',
     },
     {
@@ -388,7 +388,7 @@ export default function Home() {
                         <div style={{ fontSize: 38, marginBottom: 16 }}>👤</div>
                         <h3 style={{ fontSize: 22, fontWeight: 700, color: '#1F2F3D', marginBottom: 10 }}>For Seniors & Patients</h3>
                         <p style={{ fontSize: 15, color: '#6B7D8F', lineHeight: 1.75, marginBottom: 24 }}>
-                            Access your AI companion Mitra, record your daily voice diary, and take cognitive screening tests — all in your own language.
+                            Access your AI companion Bhavi, record your daily voice diary, and take cognitive screening tests — all in your own language.
                         </p>
                         <button onClick={() => navigate('/signup/patient')} style={{ width: '100%', padding: '14px 0', background: '#2A6F97', color: '#fff', fontSize: 15, fontWeight: 600, borderRadius: 10, border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(42,111,151,0.25)', transition: 'all 0.2s', fontFamily: 'inherit' }}>
                             Start Your Journey

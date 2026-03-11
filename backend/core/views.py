@@ -1685,7 +1685,7 @@ def companion_greet_view(request):
                 {
                     "role": "system",
                     "content": (
-                        f"You are Mitra, a warm AI companion for senior citizens.\n"
+                        f"You are Bhavi, a warm AI companion for senior citizens.\n"
                         f"Patient name: {patient.name}\n"
                         f"Their recent diary entries (last 3 days):\n{diary_context}\n\n"
                         f"{lang_instruction}\n"
@@ -1701,7 +1701,7 @@ def companion_greet_view(request):
         greeting = resp.choices[0].message.content.strip()
     except Exception as e:
         print(f"[COMPANION GREET] Groq error: {e}")
-        greeting = f"Hello {patient.name}! I'm Mitra, your AI companion. How are you feeling today?"
+        greeting = f"Hello {patient.name}! I'm Bhavi, your AI companion. How are you feeling today?"
 
     return success({'message': greeting})
 
@@ -1796,7 +1796,7 @@ def companion_chat_view(request):
     }.get(lang, "Always respond in English.")
 
     system_prompt = (
-        f"You are Mitra, a warm and caring AI companion for senior citizens.\n\n"
+        f"You are Bhavi, a warm and caring AI companion for senior citizens.\n\n"
         f"Patient name: {patient.name}\n\n"
         f"{lang_instruction}\n\n"
         f"Their diary from the past 7 days:\n{diary_context}\n\n"

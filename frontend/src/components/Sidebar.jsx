@@ -10,7 +10,7 @@ export default function Sidebar({ role, isOpen, onClose }) {
     // Doctor/Caretaker portal stays in English.
     const tPt = useTranslate({
         home: 'Home',
-        mitra: 'Talk to Mitra',
+        mitra: 'Talk to Bhavi',
         diary: 'My Diary',
         checkin: 'Daily Check-in',
         game: 'Memory Game',

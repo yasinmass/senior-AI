@@ -52,7 +52,7 @@ export default function AICompanion() {
     const [crisisVisible, setCrisisVisible] = useState(false);
     const [patientName, setPatientName] = useState('Friend');
     const [systemPrompt, setSystemPrompt] = useState(
-        'You are Mitra, a warm AI companion for senior citizens. Be caring, brief and friendly.'
+        'You are Bhavi, a warm AI companion for senior citizens. Be caring, brief and friendly.'
     );
 
     // Dynamic UI translations
@@ -63,7 +63,7 @@ export default function AICompanion() {
         mic_stop: 'Tap to Stop',
         type_msg: 'Type your message...',
         send: 'Send',
-        thinking: 'Mitra is thinking...',
+        thinking: 'Bhavi is thinking...',
         auto_speak: 'Auto-speak replies',
         api_key: 'Groq API Key',
         clear: 'Clear Chat',
@@ -133,7 +133,7 @@ export default function AICompanion() {
                     }
                 }
 
-                setSystemPrompt(`You are "Mitra" (உங்கள் நண்பன்) — a warm AI companion for a senior citizen.
+                setSystemPrompt(`You are "Bhavi" (உங்கள் நண்பன்) — a warm AI companion for a senior citizen.
 
 === PROFILE ===
 Name: ${name}
@@ -169,18 +169,18 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                         const gData = await gRes.json();
                         const msg = gData.success
                             ? gData.message
-                            : `Hello ${name}! I'm Mitra, your AI companion. How are you feeling today?`;
+                            : `Hello ${name}! I'm Bhavi, your AI companion. How are you feeling today?`;
                         setMessages([{ role: 'ai', text: msg, time: getTime() }]);
                         pendingGreetRef.current = msg;
                     } catch {
-                        const fb = `Hello ${name}! I'm Mitra. How are you feeling today?`;
+                        const fb = `Hello ${name}! I'm Bhavi. How are you feeling today?`;
                         setMessages([{ role: 'ai', text: fb, time: getTime() }]);
                         pendingGreetRef.current = fb;
                     }
                 }
             } catch (err) {
                 console.error('[AICompanion] init error:', err);
-                const fb = "Hello! I'm Mitra, your AI companion. How are you feeling today?";
+                const fb = "Hello! I'm Bhavi, your AI companion. How are you feeling today?";
                 setMessages([{ role: 'ai', text: fb, time: getTime() }]);
                 pendingGreetRef.current = fb;
             }
@@ -558,7 +558,7 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
         setOrbState('idle');
         stopWave();
         setCrisisVisible(false);
-        const fb = `Hello ${patientName}! I'm Mitra. How are you feeling today?`;
+        const fb = `Hello ${patientName}! I'm Bhavi. How are you feeling today?`;
         setMessages([{ role: 'ai', text: fb, time: getTime() }]);
         pendingGreetRef.current = fb;
     };
