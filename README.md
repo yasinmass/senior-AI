@@ -1,6 +1,6 @@
 # SeniorMind AI 🧠
 
-> Voice-first mental health & dementia care 
+> Voice-first mental health care 
 > platform built for senior citizens.
 
 ## What is SeniorMind AI?
