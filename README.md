@@ -1,13 +1,11 @@
 # SeniorMind AI 🧠
 
-> Voice-first mental health care 
-> platform built for senior citizens.
+> Voice-first mental health care platform built for senior citizens.
 
 ## What is SeniorMind AI?
 
-SeniorMind AI lets seniors speak naturally 
-in their own language. No typing. No complex 
-navigation. Just voice.
+SeniorMind AI lets seniors speak naturally in their own language.  
+No typing. No complex navigation. Just voice.
 
 ## Features
 
@@ -20,11 +18,18 @@ navigation. Just voice.
 
 ## Tech Stack
 
-- **Frontend** — React + Vite
-- **Backend** — Django + Python
-- **AI Models** — Whisper, LLaMA3, pysentimiento
-- **Database** — SQLite3
+- Frontend — React + Vite
+- Backend — Django + Python
+- AI Models — Whisper, LLaMA3, pysentimiento
+- Database — SQLite3
 
-## Status
+---
 
-🚧 Currently in development — deployment coming soon.
+## Local Setup
+
+### Frontend
+
+```bash
+cd dementia/frontend
+npm install
+npm run dev
