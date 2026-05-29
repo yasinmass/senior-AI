@@ -1,0 +1,355 @@
+# Bhavi Voice Agent — Production-Grade Offline AI Companion Upgrade
+
+Transform Bhavi from a Groq-API-dependent chatbot into a **privacy-first, offline-capable, multilingual emotional AI companion** for senior citizens.
+
+## Current State Analysis
+
+The existing Bhavi implementation has two entry points:
+
+| Component | File | Current Dependency |
+|-----------|------|--------------------|
+| **Standalone companion** | [app.js](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/ai-companion/ai-healthcare/app.js) | Groq API (llama-3.3-70b) directly from browser |
+| **In-app companion** | [AICompanion.jsx](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/frontend/src/pages/patient/AICompanion.jsx) | Groq API (llama-3.1-8b) via frontend + backend |
+| **Backend chat** | [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py#L1630-L1837) | Groq Python SDK |
+| **TTS** | [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py#L1414-L1447) | gTTS (requires internet) |
+| **STT** | [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py#L73-L178) | Faster-Whisper (✅ already local) |
+| **Emotion** | [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py#L14-L70) | pysentimiento (✅ already local, English-only) |
+| **Translation** | [translator.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/translator.py) | LibreTranslate (✅ already self-hostable) |
+| **Memory** | [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py#L1776-L1781) | Simple ChatHistory DB table (no semantic retrieval) |
+
+### What Must Change
+
+1. **LLM**: Groq API → **Qwen2.5 via Ollama** (local)
+2. **TTS**: gTTS (cloud) → **Piper TTS** (local)
+3. **Emotion**: pysentimiento (English-only) → **XLM-Roberta** (multilingual)
+4. **Memory**: Raw ChatHistory → **ChromaDB** (semantic vector memory)
+5. **VAD**: None → **Silero VAD** (voice activity detection)
+6. **Embeddings**: None → **all-MiniLM-L6-v2** (for ChromaDB)
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Ollama Must Be Pre-Installed**: This plan assumes Ollama is installed on the deployment machine and `qwen2.5:7b` model is pulled. The code will include setup instructions but cannot auto-install Ollama itself.
+
+> [!IMPORTANT]
+> **Piper TTS Binary Required**: Piper TTS requires downloading pre-built voice model files (~30-80MB each) for each language. Setup instructions will be provided. Tamil voice availability may be limited — fallback to English Piper voice + LibreTranslate will be implemented.
+
+> [!WARNING]
+> **Breaking Change**: The Groq API key will no longer be required for the companion chat. The `GROQ_API_KEY` setting and frontend API key input will be removed from the Bhavi flow. Other features that may use Groq are not affected.
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Piper TTS Tamil Voice**: Piper has limited Tamil voice models. Should we use English Piper + transliteration for Tamil, or keep gTTS as a Tamil-only fallback? **Plan**: Use Piper for English, keep gTTS as optional fallback for Tamil/Hindi while Piper voices catch up.
+
+> [!NOTE]
+> **Qwen2.5 Model Size**: The plan uses `qwen2.5:7b` for balance of quality + speed on consumer hardware. If the deployment machine has <8GB RAM, we can switch to `qwen2.5:3b`. Which size do you prefer?
+
+---
+
+## Proposed Changes
+
+### New Backend Service Layer — `backend/core/bhavi/`
+
+All Bhavi AI services will be modularized into a new `bhavi/` package under `backend/core/`. This replaces the monolithic inline code in views.py.
+
+#### [NEW] `bhavi/__init__.py`
+Package init — exports all service interfaces.
+
+#### [NEW] `bhavi/config.py`
+Central configuration for all Bhavi services:
+- Ollama model name & endpoint
+- Whisper model size
+- ChromaDB collection names
+- Piper TTS voice paths
+- Emotion model identifiers
+- VAD thresholds
+
+#### [NEW] `bhavi/stt_service.py`
+**Faster-Whisper STT Service** — refactored from inline views.py code:
+- Lazy model loading (singleton pattern)
+- Automatic language detection (Tamil/Hindi/English)
+- Configurable model size (`small` → `medium` upgrade path)
+- Microphone streaming support via WebSocket-ready interface
+- Audio format conversion (webm → wav)
+- Silero VAD integration for start/stop detection
+
+#### [NEW] `bhavi/llm_service.py`
+**Qwen2.5 via Ollama LLM Service**:
+- Ollama HTTP API integration (`http://localhost:11434/api/chat`)
+- Streaming response generation (yields chunks)
+- Empathetic system prompt crafted for elderly care
+- Context window management (session memory + retrieved memories)
+- Graceful fallback if Ollama is unavailable
+- Personality: gentle, warm, non-robotic, calm companionship
+
+#### [NEW] `bhavi/emotion_service.py`
+**XLM-Roberta Multilingual Emotion Detection**:
+- Primary model: `cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual`
+- Advanced layer: `monologg/bert-base-multilingual-cased-goemotions-ekman` (GoEmotions)
+- Detects: sadness, loneliness, stress, anger, joy, neutral
+- Emotional trend tracking (rolling window)
+- Risk indicator generation (crisis scoring)
+- Works for Tamil, Hindi, and English natively
+
+#### [NEW] `bhavi/memory_service.py`
+**ChromaDB Semantic Memory System**:
+- Local persistent ChromaDB instance
+- Embedding model: `all-MiniLM-L6-v2` via sentence-transformers
+- **Short-term memory**: Recent 10-turn session context
+- **Long-term memory**: 
+  - Emotional summaries (daily/weekly)
+  - Important personal references (family, events)
+  - Language preference
+  - Recurring emotional patterns
+- Summary-based storage (not raw conversations)
+- Semantic similarity retrieval for contextual responses
+- Privacy: no raw audio stored, summaries only
+
+#### [NEW] `bhavi/tts_service.py`
+**Piper TTS Service**:
+- Local Piper TTS binary integration
+- Streaming voice output (WAV chunks)
+- Elderly-friendly speaking pace (rate adjustment)
+- Calm conversational tone
+- Language-specific voice model loading
+- Fallback chain: Piper → gTTS → silent
+
+#### [NEW] `bhavi/vad_service.py`
+**Silero VAD Service**:
+- Voice Activity Detection for start/stop speaking
+- Reduces unnecessary processing
+- Integrates with STT pipeline
+- Configurable silence thresholds
+
+#### [NEW] `bhavi/pipeline.py`
+**Main Bhavi Pipeline Orchestrator**:
+```
+User Speech → VAD → Faster-Whisper STT → Emotion Detection
+    → Memory Retrieval (ChromaDB) → Qwen2.5 Response → Piper TTS → Voice
+```
+- Orchestrates the full pipeline
+- Handles streaming (begin TTS while LLM still generating)
+- Latency optimization: parallel emotion detection + memory retrieval
+- Error handling & graceful degradation
+
+---
+
+### Backend Views Updates — `backend/core/views.py`
+
+#### [MODIFY] [views.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/views.py)
+
+**Changes to companion views (lines 1630-1878)**:
+
+1. **`companion_greet_view`** (line 1655): Replace Groq SDK call with `bhavi.llm_service.generate_greeting()`
+2. **`companion_chat_view`** (line 1711): Replace Groq pipeline with `bhavi.pipeline.process_turn()`:
+   - STT already handled (keep existing Whisper code path)
+   - Add emotion detection call
+   - Add ChromaDB memory retrieval
+   - Replace Groq with Ollama/Qwen2.5
+   - Add emotion metadata to response
+3. **`tts_view`** (line 1417): Replace gTTS with Piper TTS service, keep gTTS as fallback
+4. **`companion_history_view`**: Add emotion data to history entries
+5. **`companion_crisis_view`**: Enhanced with emotion service risk indicators
+
+**New endpoints**:
+- `POST /api/companion/emotion/` — Get emotion analysis for text
+- `GET /api/companion/memory/summary/` — Get memory summary for patient
+- `POST /api/companion/chat/stream/` — SSE streaming chat endpoint
+
+---
+
+### Database Model Updates — `backend/core/models.py`
+
+#### [MODIFY] [models.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/core/models.py)
+
+**Add to ChatHistory model**:
+```python
+emotion = models.CharField(max_length=50, null=True, blank=True)
+emotion_score = models.FloatField(null=True, blank=True)
+```
+
+**New model — `EmotionalSummary`**:
+```python
+class EmotionalSummary(models.Model):
+    patient = models.ForeignKey(Patient, ...)
+    summary_text = models.TextField()       # AI-generated summary
+    dominant_emotion = models.CharField()
+    avg_mood_score = models.FloatField()
+    risk_level = models.CharField()         # low/medium/high
+    period_start = models.DateTimeField()
+    period_end = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+---
+
+### Django Settings — `backend/healthcare/settings.py`
+
+#### [MODIFY] [settings.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/backend/healthcare/settings.py)
+
+Add Bhavi-specific configuration:
+```python
+# Bhavi AI Configuration (all local)
+BHAVI_OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+BHAVI_OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5:7b')
+BHAVI_WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'small')
+BHAVI_PIPER_VOICE_DIR = os.getenv('PIPER_VOICE_DIR', os.path.join(BASE_DIR, 'piper_voices'))
+BHAVI_CHROMADB_DIR = os.getenv('CHROMADB_DIR', os.path.join(BASE_DIR, 'chromadb_data'))
+BHAVI_EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
+```
+
+---
+
+### Frontend Updates
+
+#### [MODIFY] [AICompanion.jsx](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/frontend/src/pages/patient/AICompanion.jsx)
+
+Major changes:
+1. **Remove Groq API direct calls** (lines 322-357): Replace `callGroq()` with backend API calls
+2. **Remove API key UI**: Settings panel no longer needs Groq key input
+3. **Add Hindi language support**: Extend `recogLang` toggle to cycle TA → EN → HI
+4. **Add emotion display**: Show detected emotion badge on AI responses
+5. **Add streaming support**: Use SSE/EventSource for real-time streaming responses
+6. **Add memory indicator**: Show when Bhavi recalls past conversations
+
+#### [MODIFY] [AICompanion.css](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/frontend/src/pages/patient/AICompanion.css)
+
+Add styles for:
+- Emotion badges (color-coded)
+- Hindi language toggle state
+- Streaming text animation
+- Memory recall indicator
+- Privacy indicator badge
+
+---
+
+### Standalone Companion Updates
+
+#### [MODIFY] [app.js](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/ai-companion/ai-healthcare/app.js)
+
+Replace Groq direct API with backend-routed calls through the new pipeline. Add Hindi support.
+
+#### [MODIFY] [server.py](file:///c:/Users/DevadharshiniKumar/OneDrive/Desktop/SeniorAI_Project/senior-AI/ai-companion/ai-healthcare/server.py)
+
+Replace gTTS with Piper TTS subprocess calls.
+
+---
+
+### Dependencies
+
+#### [MODIFY] `backend/requirements.txt`
+
+Add:
+```
+chromadb>=0.4.22
+sentence-transformers>=2.2.2
+transformers>=4.36.0
+torch>=2.0.0
+silero-vad>=4.0
+piper-tts>=1.2.0
+requests>=2.31.0  # for Ollama HTTP API
+```
+
+Remove/deprecate:
+```
+groq  # no longer needed for Bhavi
+```
+
+---
+
+### Configuration & Setup Files
+
+#### [NEW] `backend/core/bhavi/setup_models.py`
+Script to download and prepare all required models:
+- Whisper model (if not cached)
+- XLM-Roberta emotion model
+- Sentence-transformers embedding model
+- Piper voice files
+- Silero VAD model
+
+#### [NEW] `SKILLS.md` (project root)
+Comprehensive technical documentation of the Bhavi AI system covering:
+- Architecture overview with pipeline diagram
+- Technology stack justification
+- Installation & setup instructions
+- Model configuration
+- Privacy & security considerations
+- API reference
+- Troubleshooting guide
+
+---
+
+## Pipeline Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    USER (Senior Citizen)                      │
+│                    🎤 Voice / ⌨️ Text Input                  │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ① SILERO VAD — Voice Activity Detection                     │
+│     Detects speech start/stop · Reduces noise processing     │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ② FASTER-WHISPER STT — Speech to Text                       │
+│     Auto-detects Tamil/Hindi/English · Offline · Low latency │
+└────────┬────────────────┬────────────────────────────────────┘
+         │                │
+         ▼                ▼
+┌─────────────────┐  ┌───────────────────────────────────────┐
+│ ③ EMOTION DETECT│  │ ④ CHROMADB MEMORY RETRIEVAL           │
+│ XLM-Roberta     │  │ Semantic search past conversations    │
+│ multilingual    │  │ Emotional patterns · Personal refs    │
+│ sentiment       │  │ all-MiniLM-L6-v2 embeddings          │
+└────────┬────────┘  └──────────────────┬────────────────────┘
+         │                              │
+         └──────────┬───────────────────┘
+                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ⑤ QWEN2.5 via OLLAMA — Response Generation                 │
+│     Local LLM · Streaming · Empathetic prompting             │
+│     Context: emotion + memories + session history            │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│  ⑥ PIPER TTS — Text to Speech                               │
+│     Offline · Streaming · Elderly-friendly pace              │
+│     Fallback: gTTS for unsupported languages                 │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    🔊 Voice Response to User                  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Verification Plan
+
+### Automated Tests
+1. **Unit tests** for each service in `bhavi/`:
+   - `test_emotion_service.py` — verify multilingual emotion detection
+   - `test_memory_service.py` — verify ChromaDB storage and retrieval
+   - `test_llm_service.py` — verify Ollama connectivity and response format
+   - `test_pipeline.py` — verify end-to-end pipeline orchestration
+2. **API endpoint tests**: Hit `/api/companion/chat/` with text in Tamil, English, Hindi
+3. **Build verification**: `python manage.py check` and `python manage.py migrate`
+
+### Manual Verification
+1. Start Ollama with `qwen2.5:7b` and verify chat responses
+2. Test voice input → voice output roundtrip in all 3 languages
+3. Verify emotion badges appear correctly
+4. Verify memory recall ("Yesterday you mentioned...")
+5. Verify crisis detection still works
+6. Verify no external API calls are made during normal operation
