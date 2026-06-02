@@ -69,4 +69,5 @@ urlpatterns = [
     path('checkin/submit/', views.checkin_submit_view, name='checkin_submit'),
     path('checkin/today/', views.checkin_today_view, name='checkin_today'),
     path('checkin/history/', views.checkin_history_view, name='checkin_history'),
+    path('games/save-score/', views.save_game_score_view, name='save_game_score'),
 ]

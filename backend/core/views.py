@@ -8,13 +8,12 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion, DiaryEntry, SoulConnect, ChatHistory, DailyCheckin
+from .models import Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion, DiaryEntry, SoulConnect, ChatHistory, DailyCheckin, GameScore
 from .ml_predictor import predict_dementia, combined_risk_level
 import subprocess
-from pysentimiento import create_analyzer
-
 # Load analyzer models once at startup (per user request)
 try:
+    from pysentimiento import create_analyzer
     print("[SENTIMIENTO] Loading models... this may take a moment.")
     sentiment_analyzer = create_analyzer(task="sentiment", lang="en")
     emotion_analyzer   = create_analyzer(task="emotion", lang="en")
@@ -704,6 +703,16 @@ def doctor_patient_detail_view(request, patient_id):
                 'language': sc.language,
                 'created_at': sc.created_at.strftime('%Y-%m-%d %H:%M'),
             } for sc in SoulConnect.objects.filter(patient=patient).order_by('-created_at')[:30]
+        ],
+        'game_scores': [
+            {
+                'id': gs.id,
+                'game_name': gs.game_name,
+                'score': gs.score,
+                'moves': gs.moves,
+                'time_taken': gs.time_taken,
+                'created_at': gs.created_at.strftime('%Y-%m-%d %H:%M'),
+            } for gs in GameScore.objects.filter(patient=patient).order_by('-created_at')[:30]
         ]
     })
 
@@ -1962,4 +1971,30 @@ def checkin_history_view(request):
         return success({'history': history_list})
     except Patient.DoesNotExist:
         return error('Patient not found.', 404)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_game_score_view(request):
+    """
+    POST /api/games/save-score/
+    Save cognitive game results.
+    """
+    patient_id = request.session.get('patient_id')
+    if not patient_id:
+        return error('Not authenticated.', 401)
+
+    data = json_body(request)
+    try:
+        patient = Patient.objects.get(id=patient_id)
+        GameScore.objects.create(
+            patient=patient,
+            game_name=data.get('game_name', 'memory_match'),
+            score=data.get('score', 0),
+            moves=data.get('moves', 0),
+            time_taken=data.get('time_taken', 0)
+        )
+        return success({'message': 'Game score saved successfully!'})
+    except Exception as e:
+        return error(str(e))
 

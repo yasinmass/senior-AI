@@ -299,3 +299,12 @@ export async function getCheckinHistory() {
     const res = await apiFetch('/checkin/history/');
     return res.json();
 }
+
+export async function saveGameScore(data) {
+    const res = await apiFetch('/games/save-score/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    return res.json();
+}

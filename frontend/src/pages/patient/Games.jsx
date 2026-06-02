@@ -1,15 +1,11 @@
 import DashboardLayout from '../../components/DashboardLayout';
 import MemoryGame from '../../components/MemoryGame_updated_ui';
 import { useTranslate } from '../../hooks/useTranslate';
+import { saveGameScore } from '../../utils/api';
 
-async function saveScore(scoreData) {
+async function handleScoreSave(scoreData) {
     try {
-        await fetch('/api/games/save-score/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(scoreData),
-            credentials: 'include',
-        });
+        await saveGameScore(scoreData);
     } catch (e) {
         console.warn('[Games] score save failed:', e);
     }
@@ -26,7 +22,7 @@ export default function Games() {
                 <h2>🎮 {t.title}</h2>
                 <p>{t.subtitle}</p>
             </div>
-            <MemoryGame onScoreSave={saveScore} />
+            <MemoryGame onScoreSave={handleScoreSave} />
         </DashboardLayout>
     );
 }

@@ -255,6 +255,7 @@ class ChatHistory(models.Model):
         verbose_name_plural = 'Chat Histories'
         ordering = ['created_at']
 
+
 class DailyCheckin(models.Model):
     """Stores the senior's daily check-in (Soul Connect) structured answers."""
     patient      = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='daily_checkins')
@@ -273,4 +274,23 @@ class DailyCheckin(models.Model):
 
     def __str__(self):
         return f"DailyCheckin by {self.patient.name} on {self.date}"
+
+
+class GameScore(models.Model):
+    """Stores scores from cognitive games like Memory Match."""
+    patient    = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='game_scores')
+    game_name  = models.CharField(max_length=50)
+    score      = models.IntegerField()
+    moves      = models.IntegerField()
+    time_taken = models.IntegerField() # in seconds
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'game_scores'
+        verbose_name = 'Game Score'
+        verbose_name_plural = 'Game Scores'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.game_name} score {self.score} by {self.patient.name}"
 

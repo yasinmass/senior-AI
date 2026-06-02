@@ -14,6 +14,7 @@ export default function DoctorPatientDetail() {
     const [patient, setPatient] = useState(null);
     const [assessments, setAssessments] = useState([]);
     const [soulConnections, setSoulConnections] = useState([]);
+    const [gameScores, setGameScores] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -24,9 +25,8 @@ export default function DoctorPatientDetail() {
                 if (data.success) {
                     setPatient(data.patient);
                     setAssessments(data.assessments);
-                    const sc = data.soul_connections || [];
-                    console.log('[DEBUG] soul_connections from API:', sc);
-                    setSoulConnections(sc);
+                    setSoulConnections(data.soul_connections || []);
+                    setGameScores(data.game_scores || []);
                 } else {
                     console.error('[DEBUG] API returned error:', data);
                 }
@@ -216,6 +216,45 @@ export default function DoctorPatientDetail() {
                                         <td className="px-6 py-4 text-xs">
                                             <span className={`font-bold ${sc.q4_answer === 'Yes' ? 'text-green-600' : 'text-red-500'}`}>{sc.q4_answer || '—'}</span>
                                         </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Cognitive Training Scores */}
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm mb-12 overflow-hidden">
+                <div className="px-8 py-5 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">🎮 Cognitive Training — Game Scores</h3>
+                    <span className="text-xs text-gray-400 font-medium">{gameScores.length} session(s)</span>
+                </div>
+                {gameScores.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 36, marginBottom: 10 }}>🎮</div>
+                        <p className="text-sm text-gray-400 italic">No cognitive training scores found. Game results will appear here once the patient plays the Memory Game.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Date</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Game Name</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Score</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Moves</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">Time Taken</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {gameScores.map(gs => (
+                                    <tr key={gs.id}>
+                                        <td className="px-6 py-4 text-xs font-bold text-gray-800">{gs.created_at}</td>
+                                        <td className="px-6 py-4 text-xs text-gray-600 uppercase font-medium">{gs.game_name.replace('_', ' ')}</td>
+                                        <td className="px-6 py-4 text-sm font-bold text-primary">{gs.score}/100</td>
+                                        <td className="px-6 py-4 text-xs text-gray-700">{gs.moves}</td>
+                                        <td className="px-6 py-4 text-xs text-gray-700">{gs.time_taken}s</td>
                                     </tr>
                                 ))}
                             </tbody>
