@@ -98,7 +98,17 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
 ]
+
+# Django REST Framework — disable default auth so our views handle auth themselves
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
 
 # Groq API key for AI Companion
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', "REMOVED_API_KEY")

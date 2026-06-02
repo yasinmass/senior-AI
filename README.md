@@ -9,8 +9,9 @@ freshvenv/Scripts/activate
 cd backend
 python manage.py runserver
 
+<!-- not use this
 pip install libretranslate
-libretranslate --host 0.0.0.0 --port 5000
+libretranslate --host 0.0.0.0 --port 5000 -->
 
 ## Environment Variables
 Before running the project, you need to configure your environment variables.
