@@ -1,11 +1,11 @@
 ### Demertia screening and care platform 
 cd demintia
-freshvenv/Scripts/activate
+newvenv/Scripts/activate
 cd frontend
 npm run dev
 
 cd demintia
-freshvenv/Scripts/activate
+newvenv/Scripts/activate
 cd backend
 python manage.py runserver
 
