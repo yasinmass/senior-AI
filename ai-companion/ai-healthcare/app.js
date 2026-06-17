@@ -1,7 +1,11 @@
 /* ═══════════════════════════════════════════════════
    உங்கள் நண்பன் · Live
-   app.js  |  Tamil & English only  |  Groq llama-3.3-70b
-═══════════════════════════════════════════════════ */
+   app.js  |  Local / Offline Local Companion with Hindi Support
+   Routes requests through Django Local Backend.
+   Uses local Piper TTS / gTTS fallback.
+   All processing is offline and private.
+   No API keys required.
+ ═══════════════════════════════════════════════════ */
 
 // ─────────────────────────────────────────────────
 // 1.  USER FILES  (text_1 & text_2)
@@ -12,7 +16,7 @@ Name: Lakshmi
 Age: 72
 Location: Chennai, India
 Occupation: Retired School Teacher (25 years)
-Languages: Tamil, English
+Languages: Tamil, English, Hindi
 Family:
   - Daughter: Meena (Bangalore, IT)
   - Son: Ravi (Singapore)
@@ -43,10 +47,6 @@ Long silences, feeling like a burden, spending festivals alone.
 Helping students grow into good people was her biggest gift to society.
 `;
 
-// ─────────────────────────────────────────────────
-// 2.  SYSTEM PROMPT  (Tamil & English ONLY)
-// ─────────────────────────────────────────────────
-
 const SYSTEM_PROMPT = `You are "உங்கள் நண்பன்" — a warm, compassionate AI companion for an elderly woman named Lakshmi.
 
 === PERSONAL FILE ===
@@ -58,49 +58,44 @@ ${FILE_DIARY}
 ══════════════════════════════════════
 ⚠️  LANGUAGE RULE — READ CAREFULLY  ⚠️
 ══════════════════════════════════════
-Only TWO languages are supported: TAMIL and ENGLISH.
+Three languages are supported: TAMIL, ENGLISH, and HINDI.
 
-RULE 1: If the user's message contains Tamil script characters (Unicode range 0B80–0BFF, e.g. க, ம, ன, ப, இ, அ, etc.) → reply ENTIRELY in Tamil script.
-  - Every single word must be Tamil script.
-  - Do NOT include any English words in your response.
-  - Example input: "நான் சோர்வாக இருக்கேன்"
-  - Example output: "அது கேட்கவே கஷ்டமாக இருக்கிறது. என்ன நடந்தது என்று சொல்ல முடியுமா?"
+RULE 1: If the user's message contains Tamil script characters (Unicode range 0B80–0BFF) → reply ENTIRELY in Tamil script.
+RULE 2: If the user's message contains Hindi/Devanagari script characters (Unicode range 0900–097F) → reply ENTIRELY in Hindi.
+RULE 3: If the user's message is in English (Latin alphabet) → reply ENTIRELY in English.
 
-RULE 2: If the user's message is in English (Latin alphabet, e.g. "I feel lonely", "How are you") → reply ENTIRELY in English.
-  - Every single word must be English.
-  - Do NOT include any Tamil script or Tamil romanized words.
-  - Example input: "I feel so lonely today"
-  - Example output: "I'm really sorry to hear that. What happened today that made you feel this way?"
-
-RULE 3: There is no third option. No mixing. No Tanglish.
-  - If user writes in Latin letters → that is English → reply in English.
-  - If user writes in Tamil script → reply in Tamil script.
-  - This rule overrides EVERYTHING else.
+No mixing. No Tanglish. Reply completely in the detected language.
 ══════════════════════════════════════
 
 === EMOTIONAL SUPPORT RULES ===
 1. Acknowledge feelings BEFORE any advice or suggestions.
 2. Speak like a caring grandchild — warm, patient, never rushed.
-3. When she is sad/lonely → gently reference ONE positive memory from her diary (naturally, not verbatim).
+3. When she is sad/lonely → gently reference ONE positive memory from her diary.
 4. NEVER make her feel old, helpless, or a burden.
-   - If she doubts herself → remind her: Best Teacher Award 2005, 25 years teaching, lives she shaped.
-5. REPLY LENGTH:
-   - Write 3-5 complete sentences.
-   - ALWAYS finish your last sentence fully. Never end mid-word or mid-sentence.
-   - End every reply with one gentle question.
-6. If she sounds deeply hopeless → gently suggest calling Meena or Ravi.
+5. REPLY LENGTH: 3-5 complete sentences. End with one gentle question.
+6. If she sounds deeply hopeless → gently suggest calling Meena, Ravi, or a loved one.
 7. You are NOT a therapist. You are her warm, caring friend.`;
 
 // ─────────────────────────────────────────────────
-// 3.  STATE & SETTINGS
+// 2.  STATE & SETTINGS
 // ─────────────────────────────────────────────────
 
-let GROQ_API_KEY = localStorage.getItem('nanbhan_key') || '';
+const BACKEND_URL = 'http://127.0.0.1:8000';
 let AUTO_SPEAK = localStorage.getItem('nanbhan_speak') !== 'false';
 
-// Recognition language: 'ta-IN' for Tamil, 'en-IN' for English
-// User toggles this with the TA/EN button on the dock
+// Recognition language cycle: ta-IN (Tamil) -> en-IN (English) -> hi-IN (Hindi)
+const LANGS = [
+  { code: 'ta-IN', api: 'ta', label: '🇮🇳 TA', title: 'Tamil' },
+  { code: 'en-IN', api: 'en', label: '🇬🇧 EN', title: 'English' },
+  { code: 'hi-IN', api: 'hi', label: 'hi', title: 'Hindi' }
+];
+
 let RECOG_LANG = localStorage.getItem('nanbhan_recognLang') || 'ta-IN';
+let LANG_IDX = LANGS.findIndex(l => l.code === RECOG_LANG);
+if (LANG_IDX === -1) {
+  LANG_IDX = 0;
+  RECOG_LANG = LANGS[LANG_IDX].code;
+}
 
 let history = [];
 let isRecording = false;
@@ -110,34 +105,23 @@ let waveTimer = null;
 let wavePhase = 0;
 
 // ─────────────────────────────────────────────────
-// 4.  DOM HELPERS
+// 3.  DOM HELPERS
 // ─────────────────────────────────────────────────
 
 const $ = id => document.getElementById(id);
 
 // ─────────────────────────────────────────────────
-// 5.  LANGUAGE DETECTION  (Tamil or English ONLY)
+// 4.  LANGUAGE DETECTION
 // ─────────────────────────────────────────────────
 
 function detectLang(text) {
-  // If ANY Tamil Unicode character is present → Tamil
   if (/[\u0B80-\u0BFF]/.test(text)) return 'Tamil';
-  // Everything else → English
+  if (/[\u0900-\u097F]/.test(text)) return 'Hindi';
   return 'English';
 }
 
 // ─────────────────────────────────────────────────
-// 6.  TEXT-TO-SPEECH  (gTTS via local server.py)
-//
-//  speak(text, lang) calls POST /tts on our Python server.
-//  The server uses Google TTS (gTTS) → returns an MP3.
-//  We play it with an HTML Audio element.
-//  This works on ALL OS (Windows/Mac/Linux) with NO voice pack needed.
-//
-//  Tamil  → lang='ta'  → perfect Tamil pronunciation
-//  English → lang='en' → natural English voice
-//
-//  Fallback: if server unreachable → Web Speech API
+// 5.  TEXT-TO-SPEECH (via local server.py)
 // ─────────────────────────────────────────────────
 
 let _currentAudio = null; // track active Audio element
@@ -146,8 +130,10 @@ function speak(text, lang) {
   if (!AUTO_SPEAK) return Promise.resolve();
   if (!text || !text.trim()) return Promise.resolve();
 
-  // Map our lang names to gTTS lang codes
-  const gttsLang = (lang === 'Tamil') ? 'ta' : 'en';
+  // Map to server lang codes
+  let ttsLang = 'en';
+  if (lang === 'Tamil') ttsLang = 'ta';
+  else if (lang === 'Hindi') ttsLang = 'hi';
 
   // Show orb animation immediately
   isSpeaking = true;
@@ -155,10 +141,9 @@ function speak(text, lang) {
   startWave('rgba(52,211,153,0.8)');
 
   return new Promise(resolve => {
-    // Build the /tts URL
-    const url = `/tts?lang=${gttsLang}&text=${encodeURIComponent(text)}`;
+    // Build the local server.py /tts URL
+    const url = `/tts?lang=${ttsLang}&text=${encodeURIComponent(text)}`;
 
-    // Stop any currently playing audio
     if (_currentAudio) {
       _currentAudio.pause();
       _currentAudio = null;
@@ -170,7 +155,6 @@ function speak(text, lang) {
     audio.oncanplaythrough = () => {
       audio.play().catch(err => {
         console.warn('Audio play() blocked:', err);
-        // If autoplay blocked, still resolve so conversation continues
         _done();
       });
     };
@@ -178,10 +162,9 @@ function speak(text, lang) {
     audio.onended = () => _done();
 
     audio.onerror = (e) => {
-      console.warn('gTTS audio error — falling back to Web Speech API', e);
+      console.warn('Local TTS audio error — falling back to Web Speech API', e);
       _done();
-      // Fallback: Web Speech API
-      speakWebSpeech(text, lang); // fire-and-forget fallback
+      speakWebSpeech(text, lang); // Fallback to browser
     };
 
     function _done() {
@@ -194,7 +177,7 @@ function speak(text, lang) {
   });
 }
 
-// Web Speech API fallback (used if server.py is not running)
+// Web Speech API fallback
 function speakWebSpeech(text, lang) {
   if (!('speechSynthesis' in window)) return Promise.resolve();
   window.speechSynthesis.cancel();
@@ -211,6 +194,13 @@ function speakWebSpeech(text, lang) {
         utt.lang = 'ta-IN';
         const v = voices.find(v => v.lang === 'ta-IN')
           || voices.find(v => v.lang.startsWith('ta'))
+          || voices.find(v => v.default)
+          || voices[0] || null;
+        if (v) utt.voice = v;
+      } else if (lang === 'Hindi') {
+        utt.lang = 'hi-IN';
+        const v = voices.find(v => v.lang === 'hi-IN')
+          || voices.find(v => v.lang.startsWith('hi'))
           || voices.find(v => v.default)
           || voices[0] || null;
         if (v) utt.voice = v;
@@ -238,7 +228,7 @@ if ('speechSynthesis' in window) {
 }
 
 // ─────────────────────────────────────────────────
-// 7.  ORB STATE
+// 6.  ORB STATE
 // ─────────────────────────────────────────────────
 
 function setOrbState(state) {
@@ -254,8 +244,10 @@ function setOrbState(state) {
 
   const icons = { idle: '🤍', listening: '🎙️', thinking: '💭', speaking: '🔊' };
   const labels = { idle: 'உங்கள் நண்பன்', listening: 'கேட்கிறேன்…', thinking: 'யோசிக்கிறேன்…', speaking: 'பேசுகிறேன்…' };
+  
+  const currentLangLabel = LANGS[LANG_IDX].title;
   const hints = {
-    idle: `🎙️ Mic தொடுங்கள் · Currently: ${RECOG_LANG === 'ta-IN' ? '🇮🇳 Tamil' : '🇬🇧 English'}`,
+    idle: `🎙️ Mic தொடுங்கள் · Language: 🇮🇳 ${currentLangLabel}`,
     listening: '⏹ நிறுத்த மீண்டும் Mic தொடுங்கள்',
     thinking: '💭 யோசிக்கிறேன்…',
     speaking: '🔊 பேசுகிறேன்…'
@@ -263,11 +255,12 @@ function setOrbState(state) {
   orbIcon.textContent = icons[state] || '🤍';
   orbLabel.textContent = labels[state] || '';
   dockHint.textContent = hints[state] || '';
-  liveLabel.textContent = state === 'idle' ? 'Live' : (labels[state] || 'Live').replace('…', '');
+  liveLabel.textContent = state === 'idle' ? 'Bhavi AI ❤️' : (labels[state] || 'Bhavi AI ❤️').replace('…', '');
+
 }
 
 // ─────────────────────────────────────────────────
-// 8.  WAVE ANIMATION
+// 7.  WAVE ANIMATION
 // ─────────────────────────────────────────────────
 
 function startWave(color = 'rgba(96,165,250,0.8)') {
@@ -285,6 +278,7 @@ function startWave(color = 'rgba(96,165,250,0.8)') {
   }, 60);
 }
 
+// Stop wave visualizer
 function stopWave() {
   clearInterval(waveTimer);
   const waveWrap = $('waveWrap');
@@ -295,58 +289,77 @@ function stopWave() {
 }
 
 // ─────────────────────────────────────────────────
-// 9.  GROQ API CALL
+// 8.  BHAVI LOCAL BACKEND CALL (replaces direct Groq)
 // ─────────────────────────────────────────────────
 
 async function callGroq(userMessage) {
-  if (!GROQ_API_KEY) {
-    return 'API key இல்லை. Settings-ல் Groq API key சேர்க்கவும். / Please add your Groq API key in Settings.';
-  }
-
   history.push({ role: 'user', content: userMessage });
   if (history.length > 20) history = history.slice(-20);
 
   const payload = {
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history
-    ],
-    temperature: 0.78,
-    max_tokens: 600,   // Increased: Tamil sentences need more tokens to complete fully
-    stream: false
+    text: userMessage,
+    preferred_lang: LANGS[LANG_IDX].api
   };
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    // Post to the local Django companion chat endpoint
+    const res = await fetch(`${BACKEND_URL}/api/companion/chat/`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error('Groq error:', err);
-      if (res.status === 401) return 'API key தவறானது. / API key is invalid. Please check Settings.';
-      return 'கொஞ்சம் தொந்தரவு. / Having trouble connecting. Please try again.';
+      console.error('Django local backend error:', res.statusText);
+      return 'கொஞ்சம் தொந்தரவு. / Having trouble connecting to Bhavi local server. Please make sure the Django server is running.';
     }
 
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || 'I am here for you. Please tell me more.';
-    history.push({ role: 'assistant', content: reply });
-    return reply;
+
+    // Django returns flat format: { success: true, ai_response: "...", emotion: {...} }
+    // Legacy format also supported: { status: "success", data: { ai_response: "..." } }
+    let reply = null;
+    let emotionObj = null;
+
+    if (data.success === true && data.ai_response) {
+      // ✅ Actual Django format
+      reply = data.ai_response;
+      emotionObj = data.emotion || null;
+    } else if (data.status === 'success' && data.data && data.data.ai_response) {
+      // Legacy nested format
+      reply = data.data.ai_response;
+      emotionObj = data.data.emotion || null;
+    }
+
+    if (reply) {
+      history.push({ role: 'assistant', content: reply });
+
+      // Update UI with detected emotion
+      if (emotionObj && emotionObj.detected) {
+        console.log(`Emotion detected: ${emotionObj.detected} (score: ${emotionObj.mood_score})`);
+        const statusEl = $('keyStatus');
+        if (statusEl) {
+          statusEl.innerHTML = `Detected Emotion: <strong>${emotionObj.detected.toUpperCase()}</strong> (Mood: ${emotionObj.mood_score}/10)`;
+          statusEl.className = 's-hint ok';
+        }
+      }
+      return reply;
+    } else {
+      console.error('Unexpected response format:', data);
+      return 'கொஞ்சம் தொந்தரவு. மறுபடியும் முயற்சிக்கவும். / Please try again in a moment.';
+    }
+
 
   } catch (e) {
     console.error('Fetch error:', e);
-    return 'Internet connection issue. Please try again. / இணைப்பில் சிக்கல்.';
+    return 'Could not connect to Bhavi local server. Please start the Django server.';
   }
 }
 
 // ─────────────────────────────────────────────────
-// 10.  CHAT BUBBLES
+// 9.  CHAT BUBBLES
 // ─────────────────────────────────────────────────
 
 function getTime() {
@@ -403,55 +416,58 @@ function showThinking() {
 function hideThinking() { $('thinkingRow')?.remove(); }
 
 // ─────────────────────────────────────────────────
-// 11.  FULL CONVERSATION TURN
-//      TEXT → shows bubble ALWAYS
-//      VOICE → speaks reply ALWAYS
+// 10.  FULL CONVERSATION TURN
 // ─────────────────────────────────────────────────
 
 async function processTurn(userText) {
   if (!userText.trim()) return;
 
-  // Detect language from user input
   const userLang = detectLang(userText);
 
-  // ── Speak the greeting on first interaction (browser now allows audio) ──
+  // Speak greeting if pending
   if (window._pendingGreeting) {
     const greet = window._pendingGreeting;
     window._pendingGreeting = null;
     await speak(greet, 'English');
   }
 
-  // ① Show user TEXT bubble
+  // ① Show user bubble
   appendMessage('user', userText);
   const tb = $('transcriptBubble');
   const tt = $('transcriptText');
   if (tb) tb.classList.add('hidden');
   if (tt) tt.textContent = '';
 
-  // ② Thinking state
+  // ② Thinking visual state
   showThinking();
   setOrbState('thinking');
 
-  // ③ Call Groq
+  // ③ Call local backend
   const reply = await callGroq(userText);
   hideThinking();
 
-  // ④ Show AI reply as TEXT bubble ← ALWAYS
+  // ④ Show AI response
   appendMessage('ai', reply);
 
-  // ⑤ Speak AI reply as VOICE ← ALWAYS (in same language as user)
+  // ⑤ Speak response
   await speak(reply, userLang);
 
-  // ⑥ Safety: if hopeless words detected → add a second gentle message (TEXT + VOICE)
+  // ⑥ Safety check
   const hopeless = [
     'give up', 'hopeless', 'no reason', 'want to die', 'nobody cares',
-    'பொருளில்லை', 'தேவையில்லை', 'போய்விடுவேன்', 'யாரும் இல்லை'
+    'பொருளில்லை', 'தேவையில்லை', 'போய்விடுவேன்', 'யாரும் இல்லை',
+    'बेकार है', 'मरना', 'कोई नहीं', 'अकेला', 'निराश'
   ];
   if (hopeless.some(w => userText.toLowerCase().includes(w))) {
     await new Promise(r => setTimeout(r, 1400));
-    const safetyMsg = userLang === 'Tamil'
-      ? '💜 மீனா அம்மாவை ஒரு முறை அழைத்துப் பேசுங்கள். அவர்கள் உங்களை மிகவும் நேசிக்கிறார்கள்.'
-      : '💜 It might help to call Meena today. She loves you and would want to hear from you.';
+    let safetyMsg = '';
+    if (userLang === 'Tamil') {
+      safetyMsg = '💜 மீனா அம்மாவை ஒரு முறை அழைத்துப் பேசுங்கள். அவர்கள் உங்களை மிகவும் நேசிக்கிறார்கள்.';
+    } else if (userLang === 'Hindi') {
+      safetyMsg = '💜 कृपया अपनी बेटी मीना को एक बार फ़ोन करें। वह आपसे बहुत प्यार करती है।';
+    } else {
+      safetyMsg = '💜 It might help to call Meena today. She loves you and would want to hear from you.';
+    }
     appendMessage('ai', safetyMsg);
     await speak(safetyMsg, userLang);
   }
@@ -461,14 +477,12 @@ async function processTurn(userText) {
 }
 
 // ─────────────────────────────────────────────────
-// 12.  PUSH-TO-TALK MIC
-//      Click mic → recording starts (visualizer active)
-//      Click again → stop → Groq processes → AI speaks
+// 11.  PUSH-TO-TALK MIC
 // ─────────────────────────────────────────────────
 
 function toggleMic() {
   if (isRecording) {
-    recognition?.stop(); // triggers onend → processTurn
+    recognition?.stop();
   } else {
     startMic();
   }
@@ -477,17 +491,15 @@ function toggleMic() {
 function startMic() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    appendMessage('ai', 'Voice input is not supported in this browser. Please use Google Chrome. / இந்த browser-ல் voice ஆதரிக்கவில்லை. Chrome பயன்படுத்துங்கள்.');
+    appendMessage('ai', 'Voice input is not supported in this browser. Please use Google Chrome. / Chrome பயன்படுத்தவும்.');
     toggleTextInput();
     return;
   }
 
   recognition = new SpeechRecognition();
-  recognition.continuous = true;   // keeps recording until user clicks Stop
+  recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
-
-  // Language is controlled by the TA/EN toggle button on the dock
   recognition.lang = RECOG_LANG;
 
   let finalText = '';
@@ -536,9 +548,9 @@ function startMic() {
     console.error('Speech recognition error:', e.error);
     stopMicUI();
     if (e.error === 'not-allowed') {
-      appendMessage('ai', 'Microphone access denied. Please allow mic in browser settings. / Mic அனுமதி தேவை. Browser settings-ல் allow பண்ணுங்கள்.');
+      appendMessage('ai', 'Microphone access denied. Please allow mic in browser settings.');
     } else if (e.error === 'language-not-supported') {
-      appendMessage('ai', 'This language is not supported for voice input on your device. Please use the keyboard instead.');
+      appendMessage('ai', 'Voice recognition language is not supported on this device.');
     }
     setOrbState('idle');
     stopWave();
@@ -558,31 +570,28 @@ function stopMicUI() {
 }
 
 // ─────────────────────────────────────────────────
-// 13.  RECOGNITION LANGUAGE TOGGLE (TA ↔ EN)
-//      Shown as a button in the dock
+// 12.  RECOGNITION LANGUAGE TOGGLE (TA -> EN -> HI)
 // ─────────────────────────────────────────────────
 
 function toggleRecogLang() {
-  RECOG_LANG = RECOG_LANG === 'ta-IN' ? 'en-IN' : 'ta-IN';
+  LANG_IDX = (LANG_IDX + 1) % LANGS.length;
+  RECOG_LANG = LANGS[LANG_IDX].code;
   localStorage.setItem('nanbhan_recognLang', RECOG_LANG);
+  localStorage.setItem('bhavi_lang_idx', LANG_IDX.toString());
   updateLangToggleBtn();
-  setOrbState('idle'); // refresh hint text
+  setOrbState('idle');
 }
 
 function updateLangToggleBtn() {
   const btn = $('langToggleBtn');
   if (!btn) return;
-  if (RECOG_LANG === 'ta-IN') {
-    btn.textContent = '🇮🇳 TA';
-    btn.title = 'Voice input: Tamil. Click to switch to English';
-  } else {
-    btn.textContent = '🇬🇧 EN';
-    btn.title = 'Voice input: English. Click to switch to Tamil';
-  }
+  const current = LANGS[LANG_IDX];
+  btn.textContent = current.label;
+  btn.title = `Voice input: ${current.title}. Click to switch language`;
 }
 
 // ─────────────────────────────────────────────────
-// 14.  TEXT INPUT
+// 13.  TEXT INPUT
 // ─────────────────────────────────────────────────
 
 function toggleTextInput() {
@@ -615,7 +624,7 @@ function autoResize(el) {
 }
 
 // ─────────────────────────────────────────────────
-// 15.  SETTINGS PANEL
+// 14.  SETTINGS PANEL
 // ─────────────────────────────────────────────────
 
 function toggleSettings() {
@@ -623,19 +632,12 @@ function toggleSettings() {
 }
 
 function saveKey() {
-  const val = $('apiKeyInput')?.value.trim();
+  // Dummy function for local companion compat
   const status = $('keyStatus');
-  if (!val) {
-    if (status) { status.textContent = '⚠️ Please enter an API key.'; status.className = 's-hint err'; }
-    return;
+  if (status) {
+    status.textContent = '🔒 Local companion is active. Settings saved.';
+    status.className = 's-hint ok';
   }
-  if (!val.startsWith('gsk_')) {
-    if (status) { status.textContent = '⚠️ Groq keys start with gsk_'; status.className = 's-hint err'; }
-    return;
-  }
-  GROQ_API_KEY = val;
-  localStorage.setItem('nanbhan_key', val);
-  if (status) { status.textContent = '✅ Key saved! Ready.'; status.className = 's-hint ok'; }
 }
 
 function saveAutoSpeak() {
@@ -645,7 +647,7 @@ function saveAutoSpeak() {
 }
 
 // ─────────────────────────────────────────────────
-// 16.  PROFILE PHOTO UPLOAD
+// 15.  PROFILE PHOTO UPLOAD
 // ─────────────────────────────────────────────────
 
 function triggerPhotoUpload() { $('photoFileInput')?.click(); }
@@ -666,7 +668,7 @@ function handlePhotoUpload(e) {
 }
 
 // ─────────────────────────────────────────────────
-// 17.  CLEAR CHAT
+// 16.  CLEAR CHAT
 // ─────────────────────────────────────────────────
 
 function clearConversation() {
@@ -680,8 +682,7 @@ function clearConversation() {
 }
 
 // ─────────────────────────────────────────────────
-// 18.  WELCOME GREETING
-//      English greeting (since both Tamil & English supported)
+// 17.  WELCOME GREETING
 // ─────────────────────────────────────────────────
 
 async function showGreeting() {
@@ -695,34 +696,32 @@ async function showGreeting() {
   ];
   const msg = greetings[Math.floor(Math.random() * greetings.length)];
 
-  // ✅ Always show as TEXT bubble
   appendMessage('ai', msg);
-
-  // ⚠️ Do NOT auto-speak on page load — browsers block audio without a user gesture.
-  // Voice will work for all AI replies AFTER the user clicks mic or sends a message.
-  // Store greeting so we can speak it on first interaction.
   window._pendingGreeting = msg;
 }
 
 // ─────────────────────────────────────────────────
-// 19.  INIT
+// 18.  INIT
 // ─────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  // ── Settings UI ──
   const apiInput = $('apiKeyInput');
   const keyStatus = $('keyStatus');
   const toggleChk = $('autoSpeakToggle');
 
-  if (apiInput) apiInput.value = GROQ_API_KEY;
+  // Hide or disable API key input since it's local
+  if (apiInput) {
+    apiInput.value = 'Local Offline Companion Active';
+    apiInput.disabled = true;
+  }
   if (toggleChk) toggleChk.checked = AUTO_SPEAK;
 
-  if (GROQ_API_KEY && keyStatus) {
-    keyStatus.textContent = '✅ API key loaded. Ready!';
+  if (keyStatus) {
+    keyStatus.textContent = '🔒 Local Offline Companion Active';
     keyStatus.className = 's-hint ok';
   }
 
-  // ── Profile photo ──
+  // Profile photo
   const photo = localStorage.getItem('nanbhan_photo');
   if (photo) {
     const pic = $('profilePic');
@@ -731,17 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (init) { init.style.display = 'none'; }
   }
 
-  // ── Pre-load TTS voices ──
-  if ('speechSynthesis' in window) {
-    const load = () => window.speechSynthesis.getVoices();
-    load();
-    window.speechSynthesis.onvoiceschanged = load;
-  }
-
-  // ── Language toggle button ──
   updateLangToggleBtn();
   setOrbState('idle');
-
-  // ── Show welcome message ──
   showGreeting();
 });

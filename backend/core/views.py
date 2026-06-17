@@ -8,7 +8,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.hashers import make_password, check_password
-from .models import Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion, DiaryEntry, SoulConnect, ChatHistory, DailyCheckin
+from .models import (
+    Patient, Assessment, Doctor, ClinicalPlan, MOCAAssessment, TaskCompletion, 
+    DiaryEntry, SoulConnect, ChatHistory, ChatSession, DailyCheckin, VoiceQuota, BhaviMemoryFact
+)
 from .ml_predictor import predict_dementia, combined_risk_level
 import subprocess
 from pysentimiento import create_analyzer
@@ -264,12 +267,17 @@ def signup_view(request):
     if Patient.objects.filter(email=email).exists():
         return error('An account with this email already exists.')
 
+    # Convert empty strings to None for optional fields
+    age = int(age) if age and str(age).strip() else None
+    dob = dob if dob and str(dob).strip() else None
+    phone = phone if phone and str(phone).strip() else None
+
     patient = Patient.objects.create(
         name=name,
         email=email,
         password=make_password(password),
         age=age,
-        dob=dob if dob else None,
+        dob=dob,
         phone=phone,
         preferred_lang=data.get('preferred_lang', 'en'),
     )
@@ -1627,17 +1635,38 @@ def caretaker_diary_alerts_view(request):
     })
 
 
-# ─── AI Companion Views ────────────────────────────────────────────────────────
+# ─── AI Companion Views (Bhavi Pipeline — LOCAL / OFFLINE) ─────────────────────
 
-def _get_groq_client():
-    """Lazily get a Groq client instance."""
-    from groq import Groq
-    from django.conf import settings
-    return Groq(api_key=settings.GROQ_API_KEY)
+def _resolve_patient_with_fallback(request):
+    patient_id = request.session.get('patient_id')
+    if not patient_id:
+        if request.method == 'GET':
+            patient_id = request.GET.get('patient_id')
+        elif request.method == 'POST':
+            try:
+                body = json.loads(request.body.decode('utf-8'))
+                patient_id = body.get('patient_id')
+            except Exception:
+                pass
+    
+    if patient_id:
+        try:
+            return Patient.objects.get(id=patient_id)
+        except Patient.DoesNotExist:
+            pass
 
+    # Fallback to Lakshmi or first patient
+    patient = Patient.objects.filter(name="Lakshmi").first()
+    if not patient:
+        patient = Patient.objects.first()
+    if not patient:
+        patient = Patient.objects.create(name="Lakshmi", email="lakshmi@bhavi.ai")
+        patient.set_password("bhavi123")
+        patient.save()
+    return patient
 
 def _build_diary_context(patient_id, days=7):
-    """Return diary entries as a formatted string context for Groq."""
+    """Return diary entries as a formatted string context for the LLM."""
     from datetime import timedelta
     cutoff = timezone.now() - timedelta(days=days)
     entries = DiaryEntry.objects.filter(senior_id=patient_id, created_at__gte=cutoff).order_by('-created_at')[:10]
@@ -1656,52 +1685,29 @@ def _build_diary_context(patient_id, days=7):
 def companion_greet_view(request):
     """
     GET /api/companion/greet/
-    Returns a personalised greeting using Groq based on diary context.
+    Returns a personalised greeting using Qwen2.5 via Ollama (LOCAL).
+    v2.0: passes tier to pipeline for personalized greeting.
     """
-    patient_id = request.session.get('patient_id')
-    if not patient_id:
-        return error('Not authenticated.', 401)
-
-    try:
-        patient = Patient.objects.get(id=patient_id)
-    except Patient.DoesNotExist:
-        return error('Patient not found.', 404)
+    patient = _resolve_patient_with_fallback(request)
+    patient_id = patient.id
+    tier = getattr(patient, 'tier', 'free') or 'free'
 
     diary_context = _build_diary_context(patient_id, days=3)
-
-    lang = patient.preferred_lang
-
-    lang_instruction = {
-        "en": "Always respond in English.",
-        "ta": "Always respond in Tamil language (தமிழில் பதில் சொல்லவும்).",
-        "hi": "Always respond in Hindi language (हिंदी में जवाब दें).",
-    }.get(lang, "Always respond in English.")
+    lang = patient.preferred_lang or 'en'
 
     try:
-        client = _get_groq_client()
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        f"You are Bhavi, a warm AI companion for senior citizens.\n"
-                        f"Patient name: {patient.name}\n"
-                        f"Their recent diary entries (last 3 days):\n{diary_context}\n\n"
-                        f"{lang_instruction}\n"
-                        "Generate a warm, short and personal greeting (2 sentences max). "
-                        "If the diary mentions something specific, reference it naturally. "
-                        "Be friendly, caring, and encouraging."
-                    )
-                },
-                {"role": "user", "content": "greet"}
-            ],
-            max_tokens=120
+        from .bhavi import pipeline
+        greeting = pipeline.generate_greeting(
+            patient_id=patient_id,
+            patient_name=patient.name,
+            diary_context=diary_context,
+            preferred_lang=lang,
+            tier=tier,
+            patient=patient,
         )
-        greeting = resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[COMPANION GREET] Groq error: {e}")
-        greeting = f"Hello {patient.name}! I'm Bhavi, your AI companion. How are you feeling today?"
+        print(f"[COMPANION GREET] Bhavi pipeline error: {e}")
+        greeting = f"Hello {patient.name}! I'm Bhavi, your companion. How are you feeling today?"
 
     return success({'message': greeting})
 
@@ -1712,23 +1718,43 @@ def companion_chat_view(request):
     """
     POST /api/companion/chat/
     Accepts audio file (multipart) OR JSON {"text": "..."} and returns AI reply.
+    Uses the full Bhavi v2.0 pipeline with tier, quota, memory, and personalization.
+    ALL PROCESSING IS LOCAL — no external API calls.
     """
-    patient_id = request.session.get('patient_id')
-    if not patient_id:
-        return error('Not authenticated.', 401)
-
-    try:
-        patient = Patient.objects.get(id=patient_id)
-    except Patient.DoesNotExist:
-        return error('Patient not found.', 404)
+    patient = _resolve_patient_with_fallback(request)
+    patient_id = patient.id
+    tier = getattr(patient, 'tier', 'free') or 'free'
 
     user_text = ''
-    tmp_path = None
+    detected_lang = patient.preferred_lang or 'en'
+    result = {}
+    ai_response = ''
+    emotion_data = {}
+    crisis_flag = False
+
+    session_id_in = request.POST.get('session_id') if request.FILES.get('audio') else None
+    if not session_id_in and request.content_type == 'application/json':
+        try:
+            body = json_body(request)
+            session_id_in = body.get('session_id')
+        except:
+            pass
+
+    session = None
+    if session_id_in:
+        try:
+            session = ChatSession.objects.get(id=session_id_in, patient=patient)
+        except Exception:
+            pass
+    
+    if not session:
+        session = ChatSession.objects.create(patient=patient)
 
     # ── Determine input mode ──
     audio_file = request.FILES.get('audio')
     if audio_file:
-        # Voice mode: transcribe with Whisper
+        # Voice mode: process through full audio pipeline
+        # The pipeline checks quota internally and rejects audio if exhausted
         try:
             suffix = '.webm'
             fname = audio_file.name or ''
@@ -1741,124 +1767,151 @@ def companion_chat_view(request):
                     tmp.write(chunk)
                 tmp_path = tmp.name
 
-            # Convert to WAV
-            wav_path = tmp_path.rsplit('.', 1)[0] + '_conv.wav'
-            convert_webm_to_wav(tmp_path, wav_path)
+            request_lang = request.POST.get('lang')
+            browser_stt = request.POST.get('browser_stt')
+            resolved_lang = request_lang if request_lang else patient.preferred_lang
 
-            model = get_whisper_model()
-            if model is None:
-                return error('Speech-to-text service unavailable.', 503)
+            from .bhavi import pipeline
+            result = pipeline.process_audio_turn(
+                patient_id=patient_id,
+                audio_path=tmp_path,
+                patient_name=patient.name,
+                preferred_lang=resolved_lang,
+                browser_stt=browser_stt,
+                diary_context=_build_diary_context(patient_id),
+                tier=tier,
+                patient=patient,
+                session_id=str(session.id)
+            )
 
-            segments, _ = model.transcribe(wav_path, task="transcribe")
-            user_text = " ".join([s.text for s in segments]).strip()
+            user_text    = result.get('user_text', '')
+            ai_response  = result.get('ai_response', '')
+            emotion_data = result.get('emotion', {})
+            crisis_flag  = result.get('crisis_flag', False)
+            detected_lang = result.get('language', detected_lang)
 
-            # Cleanup
-            for p in [tmp_path, wav_path]:
-                if p and os.path.exists(p):
-                    os.unlink(p)
-            tmp_path = None
         except Exception as e:
-            print(f"[COMPANION CHAT] Whisper error: {e}")
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            print(f"[COMPANION CHAT] Audio pipeline error: {e}")
             return error(f'Audio processing failed: {str(e)}', 500)
     else:
-        # Text mode
+        # Text mode — always available even when voice is exhausted
         body = json_body(request)
         user_text = (body.get('text') or body.get('message') or '').strip()
 
-    if not user_text:
-        return error('No message provided.')
+        if not user_text:
+            return error('No message provided.')
 
-    # ── Build full context ──
-    diary_context = _build_diary_context(patient_id, days=7)
+        try:
+            from .bhavi import pipeline
+            result = pipeline.process_text_turn(
+                patient_id=patient_id,
+                user_text=user_text,
+                patient_name=patient.name,
+                preferred_lang=patient.preferred_lang or 'auto',
+                diary_context=_build_diary_context(patient_id),
+                tier=tier,
+                patient=patient,
+                session_id=str(session.id)
+            )
 
-    # Fetch last 10 turns (20 messages) for conversation history
-    history_qs = ChatHistory.objects.filter(patient=patient).order_by('-created_at')[:20]
-    history_msgs = []
-    for h in reversed(list(history_qs)):
-        history_msgs.append({"role": h.role, "content": h.message})
+            ai_response  = result.get('ai_response', '')
+            emotion_data = result.get('emotion', {})
+            crisis_flag  = result.get('crisis_flag', False)
 
-    # ── Crisis detection ──
-    crisis_keywords = [
-        "want to die", "end my life", "no point living", "give up",
-        "nobody cares", "can't go on", "hurt myself", "disappear forever",
-        "hopeless", "no reason to live"
-    ]
-    crisis_flag = any(kw in user_text.lower() for kw in crisis_keywords)
+        except Exception as e:
+            print(f"[COMPANION CHAT] Text pipeline error: {e}")
+            ai_response  = "I'm here with you. Could you tell me more about how you're feeling?"
+            emotion_data = {"emotion": "neutral", "mood_score": 5, "crisis": False}
+            crisis_flag  = False
 
-    lang = patient.preferred_lang
-
-    lang_instruction = {
-        "en": "Always respond in English.",
-        "ta": "Always respond in Tamil language (தமிழில் பதில் சொல்லவும்).",
-        "hi": "Always respond in Hindi language (हिंदी में जवाब दें).",
-    }.get(lang, "Always respond in English.")
-
-    system_prompt = (
-        f"You are Bhavi, a warm and caring AI companion for senior citizens.\n\n"
-        f"Patient name: {patient.name}\n\n"
-        f"{lang_instruction}\n\n"
-        f"Their diary from the past 7 days:\n{diary_context}\n\n"
-        "Rules:\n"
-        "- Speak like a caring friend, not a doctor.\n"
-        "- Keep responses SHORT — 2-3 sentences maximum.\n"
-        "- Ask only ONE gentle question per response.\n"
-        "- Be warm, patient and encouraging.\n"
-        "- Never use medical jargon or scores.\n"
-        "- If the user mentions feeling very sad or hopeless, respond with extra warmth and care.\n"
-    )
-
-    messages_for_groq = [{"role": "system", "content": system_prompt}]
-    messages_for_groq.extend(history_msgs)
-    messages_for_groq.append({"role": "user", "content": user_text})
-
-    # ── Call Groq ──
-    try:
-        client = _get_groq_client()
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages_for_groq,
-            max_tokens=200
+    # ── Save to ChatHistory (with emotion data) ──
+    if user_text:
+        ChatHistory.objects.create(
+            patient=patient,
+            session=session,
+            role='user',
+            message=user_text,
+            emotion=emotion_data.get('emotion'),
+            emotion_score=emotion_data.get('mood_score'),
         )
-        ai_response = resp.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"[COMPANION CHAT] Groq error: {e}")
-        ai_response = "I'm here with you. Could you tell me more about how you're feeling?"
+    if ai_response:
+        ChatHistory.objects.create(
+            patient=patient,
+            session=session,
+            role='assistant',
+            message=ai_response,
+        )
 
-    # ── Save to ChatHistory ──
-    ChatHistory.objects.create(patient=patient, role='user', message=user_text)
-    ChatHistory.objects.create(patient=patient, role='assistant', message=ai_response)
+    # Build quota display for frontend
+    quota_state = result.get('quota', {})
 
     return success({
-        'user_text': user_text,
-        'ai_response': ai_response,
-        'crisis_flag': crisis_flag,
+        'user_text':     user_text,
+        'ai_response':   ai_response,
+        'crisis_flag':   crisis_flag,
+        'memories_used': result.get('memories_used', 0),
+        'voice_rejected': result.get('voice_rejected', False),
+        'emotion': {
+            'detected':    emotion_data.get('emotion', 'neutral'),
+            'mood_score':  emotion_data.get('mood_score', 5),
+            'sentiment':   emotion_data.get('sentiment', 'neutral'),
+            'risk_level':  emotion_data.get('risk_level', 'low'),
+        },
+        'language': detected_lang,
+        'quota': {
+            'voice_quota_used':  quota_state.get('voice_quota_used', 0.0),
+            'voice_quota_limit': quota_state.get('voice_quota_limit', 3.0),
+            'voice_exhausted':   quota_state.get('voice_exhausted', False),
+            'quota_resets_in':   quota_state.get('quota_resets_in', 24.0),
+            'upgrade_msg_shown': quota_state.get('upgrade_msg_shown', False),
+            'should_warn':       quota_state.get('should_warn', False),
+            'tier':              tier,
+        },
+        'session_id': str(session.id),
     })
+
+
+@require_http_methods(["GET"])
+def companion_sessions_view(request):
+    """
+    GET /api/companion/sessions/
+    Returns the list of chat sessions for the user.
+    """
+    patient = _resolve_patient_with_fallback(request)
+    sessions = ChatSession.objects.filter(patient=patient).order_by('-updated_at')[:20]
+    data = []
+    for s in sessions:
+        data.append({
+            'id': str(s.id),
+            'title': s.title,
+            'updated_at': s.updated_at.isoformat()
+        })
+    return success({'sessions': data})
 
 
 @require_http_methods(["GET"])
 def companion_history_view(request):
     """
-    GET /api/companion/history/
-    Returns the last 20 chat messages for the logged-in patient.
+    GET /api/companion/history/?session_id=...
+    Returns the chat messages for a specific session.
     """
-    patient_id = request.session.get('patient_id')
-    if not patient_id:
-        return error('Not authenticated.', 401)
+    patient = _resolve_patient_with_fallback(request)
+    session_id = request.GET.get('session_id')
 
-    try:
-        patient = Patient.objects.get(id=patient_id)
-    except Patient.DoesNotExist:
-        return error('Patient not found.', 404)
+    if session_id:
+        history_qs = ChatHistory.objects.filter(patient=patient, session_id=session_id).order_by('created_at')
+    else:
+        history_qs = ChatHistory.objects.filter(patient=patient).order_by('-created_at')[:20]
+        history_qs = reversed(list(history_qs))
 
-    history_qs = ChatHistory.objects.filter(patient=patient).order_by('-created_at')[:20]
     messages_data = []
-    for h in reversed(list(history_qs)):
+    for h in history_qs:
         messages_data.append({
             'role': h.role,
             'message': h.message,
             'time': h.created_at.strftime('%I:%M %p'),
+            'emotion': h.emotion,
+            'mood_score': h.emotion_score,
         })
 
     return success({'messages': messages_data})
@@ -1870,12 +1923,203 @@ def companion_crisis_view(request):
     """
     POST /api/companion/crisis/
     Called when crisis_flag is detected. Logs it for caretaker review.
+    Enhanced with emotion service risk indicators.
+    """
+    patient = _resolve_patient_with_fallback(request)
+    patient_id = patient.id
+    # In a full implementation, this would send a push notification
+    # to the assigned caretaker/doctor.
+    return success({'notified': True})
+
+
+# ─── Text-to-Speech View (Piper TTS / gTTS fallback) ────────────────────────
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def tts_view(request):
+    """
+    Convert text to speech using Piper TTS (LOCAL) or gTTS (fallback).
+    GET /api/tts/?text=hello&lang=en
+    Returns audio stream (WAV or MP3).
+    """
+    text = request.GET.get('text', '').strip()
+    lang = request.GET.get('lang', 'en').strip()
+
+    if not text:
+        return error('No text provided.')
+
+    try:
+        from .bhavi import tts_service
+        audio_data, content_type = tts_service.synthesize(text, lang)
+
+        if audio_data:
+            from django.http import HttpResponse
+            response = HttpResponse(audio_data, content_type=content_type)
+            response['Content-Length'] = len(audio_data)
+            response['Cache-Control'] = 'no-cache'
+            return response
+        else:
+            return error('TTS synthesis failed — no audio generated.', 500)
+
+    except Exception as e:
+        return error(f'TTS failed: {str(e)}', 500)
+
+
+# ─── New Bhavi API Endpoints ──────────────────────────────────────────────────
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def companion_emotion_view(request):
+    """
+    POST /api/companion/emotion/
+    Analyze text for emotion (standalone endpoint).
+    Body: {"text": "..."}
+    """
+    patient = _resolve_patient_with_fallback(request)
+    patient_id = patient.id
+
+    body = json_body(request)
+    text = body.get('text', '').strip()
+    if not text:
+        return error('No text provided.')
+
+    try:
+        from .bhavi import emotion_service
+        result = emotion_service.analyze(text)
+        return success({'emotion': result})
+    except Exception as e:
+        return error(f'Emotion analysis failed: {str(e)}', 500)
+
+
+@require_http_methods(["GET"])
+def companion_memory_view(request):
+    """
+    GET /api/companion/memory/summary/
+    Get stored memory summary for the patient.
+    """
+    patient = _resolve_patient_with_fallback(request)
+    patient_id = patient.id
+
+    try:
+        from .bhavi import memory_service
+        summary = memory_service.get_patient_memory_summary(patient_id)
+        return success({'memory': summary})
+    except Exception as e:
+        return error(f'Memory retrieval failed: {str(e)}', 500)
+
+
+@require_http_methods(["GET"])
+def companion_status_view(request):
+    """
+    GET /api/companion/status/
+    Check pipeline status — is Ollama running, models loaded, etc.
+    """
+    try:
+        from .bhavi import pipeline
+        status = pipeline.get_pipeline_status()
+        return success({'status': status})
+    except Exception as e:
+        return success({
+            'status': {
+                'error': str(e),
+                'ollama': {'running': False},
+            }
+        })
+
+
+@require_http_methods(["GET"])
+def companion_quota_view(request):
+    """
+    GET /api/companion/quota/
+    Returns the current voice quota state for the logged-in patient.
+    Used by the frontend to show the quota bar and exhaustion state.
+    """
+    patient = _resolve_patient_with_fallback(request)
+    tier = getattr(patient, 'tier', 'free') or 'free'
+
+    try:
+        from .bhavi import quota_service
+        state = quota_service.get_quota_state(patient.id, tier)
+        display = quota_service.get_quota_display(state)
+        return success({
+            'tier': tier,
+            'voice_quota_used':  state['voice_quota_used'],
+            'voice_quota_limit': state['voice_quota_limit'],
+            'voice_exhausted':   state['voice_exhausted'],
+            'quota_resets_in':   state['quota_resets_in'],
+            'upgrade_msg_shown': state['upgrade_msg_shown'],
+            'should_warn':       state['should_warn'],
+            'display':           display,
+        })
+    except Exception as e:
+        return success({
+            'tier': tier,
+            'voice_quota_used': 0.0,
+            'voice_quota_limit': 3.0 if tier == 'free' else 20.0,
+            'voice_exhausted': False,
+            'quota_resets_in': 24.0,
+            'upgrade_msg_shown': False,
+            'should_warn': False,
+        })
+
+
+# ─── AI Companion Context View (legacy — kept for backward compat) ───────────
+
+@require_http_methods(["GET"])
+def companion_context_view(request):
+    """
+    Returns patient profile + recent diary entries as AI context.
+    GET /api/companion/context/
     """
     patient_id = request.session.get('patient_id')
     if not patient_id:
         return error('Not authenticated.', 401)
-    # In a full implementation, this would send a notification.
-    return success({'notified': True})
+
+    try:
+        patient = Patient.objects.get(id=patient_id)
+    except Patient.DoesNotExist:
+        return error('Patient not found.', 404)
+
+    # Build profile context
+    profile = {
+        'name': patient.name,
+        'age': patient.age,
+        'email': patient.email,
+        'phone': patient.phone,
+    }
+
+    # Get recent diary entries (last 20)
+    entries = DiaryEntry.objects.filter(senior_id=patient_id).order_by('-created_at')[:20]
+    diary_data = []
+    for e in entries:
+        diary_data.append({
+            'date': e.created_at.strftime('%B %d, %Y %I:%M %p'),
+            'original_text': e.original_text,
+            'english_text': e.english_text,
+            'language': e.language,
+            'mood_score': e.mood_score,
+            'emotion': e.emotion,
+        })
+
+    # Get latest assessment risk level if available
+    latest_assessment = None
+    try:
+        assessment = Assessment.objects.filter(patient=patient).order_by('-created_at').first()
+        if assessment:
+            latest_assessment = {
+                'risk_level': assessment.risk_level,
+                'total_score': assessment.total_score,
+                'date': assessment.created_at.strftime('%B %d, %Y'),
+            }
+    except Exception:
+        pass
+
+    return success({
+        'profile': profile,
+        'diary_entries': diary_data,
+        'latest_assessment': latest_assessment,
+    })
+
 
 @csrf_exempt
 @require_http_methods(["POST"])

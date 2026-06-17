@@ -16,6 +16,11 @@ build/
 venv/
 freshvenv/
 
-#backend
 db.sqlite3
 backend/db.sqlite3
+
+# Large local AI models and logs
+backend/bhavi_data/
+bhavi_data/
+*.log
+

@@ -58,11 +58,18 @@ urlpatterns = [
     # AI Companion Context (legacy)
     path('companion/context/', views.companion_context_view, name='companion_context'),
 
-    # AI Companion Chat (new)
-    path('companion/greet/',   views.companion_greet_view,   name='companion_greet'),
-    path('companion/chat/',    views.companion_chat_view,    name='companion_chat'),
-    path('companion/history/', views.companion_history_view, name='companion_history'),
-    path('companion/crisis/',  views.companion_crisis_view,  name='companion_crisis'),
+    # AI Companion Chat (Bhavi Pipeline — LOCAL)
+    path('companion/greet/',          views.companion_greet_view,   name='companion_greet'),
+    path('companion/chat/',           views.companion_chat_view,    name='companion_chat'),
+    path('companion/sessions/',       views.companion_sessions_view,name='companion_sessions'),
+    path('companion/history/',        views.companion_history_view, name='companion_history'),
+    path('companion/crisis/',         views.companion_crisis_view,  name='companion_crisis'),
+
+    # Bhavi — new endpoints
+    path('companion/emotion/',        views.companion_emotion_view, name='companion_emotion'),
+    path('companion/memory/summary/', views.companion_memory_view,  name='companion_memory'),
+    path('companion/status/',         views.companion_status_view,  name='companion_status'),
+    path('companion/quota/',          views.companion_quota_view,   name='companion_quota'),  # v2.0
 
     # Soul Connect
     path('soul-connect/', views.soul_connect_view, name='soul_connect'),

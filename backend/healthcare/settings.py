@@ -100,8 +100,30 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3001',
 ]
 
-# Groq API key for AI Companion
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', "REMOVED_API_KEY")
+# Groq API keys — key1 primary, key2 backup when key1 exhausted
+GROQ_API_KEY   = os.getenv('GROQ_API_KEY',   'REMOVED_API_KEY')
+GROQ_API_KEY_2 = os.getenv('GROQ_API_KEY_2', '')
+
+# Sarvam TTS — Indian expressive voice (Tamil / Hindi / English)
+SARVAM_API_KEY = os.getenv('SARVAM_API_KEY', '')
+
+
+# ── Bhavi AI Configuration (ALL LOCAL / OFFLINE) ──────────────────────────────
+# Ollama LLM
+BHAVI_OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+BHAVI_OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5:3b')
+
+# Faster-Whisper STT
+BHAVI_WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'small')
+
+# Piper TTS
+BHAVI_PIPER_VOICE_DIR = os.getenv('PIPER_VOICE_DIR', os.path.join(BASE_DIR, 'bhavi_data', 'piper_voices'))
+
+# ChromaDB Memory
+BHAVI_CHROMADB_DIR = os.getenv('CHROMADB_DIR', os.path.join(BASE_DIR, 'bhavi_data', 'chromadb'))
+
+# Embedding Model
+BHAVI_EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
 
 # Translation cache — stores LibreTranslate results for 7 days
 CACHES = {

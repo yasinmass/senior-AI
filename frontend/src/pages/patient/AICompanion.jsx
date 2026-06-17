@@ -3,16 +3,21 @@ import DashboardLayout from '../../components/DashboardLayout';
 import './AICompanion.css';
 import { useTranslate } from '../../hooks/useTranslate';
 
-/* ═══════════════════════════════════════════════════
-   AI Companion — strictly voice-first
-   TASK 1: TTS via gTTS backend (Tamil & English)  ← primary
-            Web Speech API                          ← fallback
-   TASK 2: Audio unlocked on mic button click so
-           audio.play() works after async Groq call
-═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   Bhavi AI Companion v2.0 — Privacy-First Multilingual Voice Agent
+   ─────────────────────────────────────────────────────────────────
+   STT  : Faster-Whisper via backend (MediaRecorder audio upload)
+   LLM  : Qwen2.5 via Ollama (LOCAL — no cloud)
+   TTS  : Piper TTS → gTTS fallback (via backend)
+   Mem  : ChromaDB semantic memory (via backend)
+   Emo  : XLM-Roberta multilingual (via backend)
+   Quota: 24-hr rolling voice quota (Free 3min / Plus 20min)
+   Langs: Tamil · English · Hindi
+═══════════════════════════════════════════════════════════════════ */
 
 function detectLang(text) {
     if (/[\u0B80-\u0BFF]/.test(text)) return 'Tamil';
+    if (/[\u0900-\u097F]/.test(text)) return 'Hindi';
     return 'English';
 }
 
@@ -21,155 +26,231 @@ function getTime() {
 }
 
 const API_BASE = '/api';
-const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
+
+const LANG_CYCLE = [
+    { code: 'ta-IN', api: 'ta', label: '🇮🇳 TA', full: 'Tamil' },
+    { code: 'en-IN', api: 'en', label: '🇬🇧 EN', full: 'English' },
+    { code: 'hi-IN', api: 'hi', label: '🇮🇳 HI', full: 'Hindi' },
+];
+
+const EMOTION_MAP = {
+    joy:        { icon: '😊', color: '#34d399', label: 'Joyful' },
+    sadness:    { icon: '💙', color: '#60a5fa', label: 'Sad' },
+    anger:      { icon: '🔴', color: '#f87171', label: 'Upset' },
+    fear:       { icon: '😰', color: '#a78bfa', label: 'Worried' },
+    surprise:   { icon: '😲', color: '#fbbf24', label: 'Surprised' },
+    neutral:    { icon: '🤍', color: '#94a3b8', label: 'Neutral' },
+    loneliness: { icon: '💜', color: '#c084fc', label: 'Lonely' },
+};
+
+const DEFAULT_QUOTA = {
+    voice_quota_used:  0,
+    voice_quota_limit: 3,
+    voice_exhausted:   false,
+    quota_resets_in:   24,
+    should_warn:       false,
+    upgrade_msg_shown: false,
+    tier:              'free',
+};
 
 export default function AICompanion() {
 
-    // ── State ──────────────────────────────────────────────────────────
-    const [messages, setMessages] = useState([]);
-    const [isRecording, setIsRecording] = useState(false);
-    const [orbState, setOrbState] = useState('idle');
-    const [transcript, setTranscript] = useState('');
+    // ── State ───────────────────────────────────────────────────────────────
+    const [messages, setMessages]             = useState([]);
+    const [isRecording, setIsRecording]       = useState(false);
+    const [orbState, setOrbState]             = useState('idle');
+    const [transcript, setTranscript]         = useState('');
     const [showTranscript, setShowTranscript] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
-    const [showTextInput, setShowTextInput] = useState(false);
-    const [textInput, setTextInput] = useState('');
-    const [recogLang, setRecogLang] = useState(
-        () => localStorage.getItem('nanbhan_recognLang') || 'ta-IN'
+    const [showTextInput, setShowTextInput]   = useState(false);
+    const [textInput, setTextInput]           = useState('');
+    const [langIdx, setLangIdx]               = useState(
+        () => parseInt(localStorage.getItem('bhavi_lang_idx') || '0')
     );
-    const [apiKey, setApiKey] = useState(
-        () => localStorage.getItem('nanbhan_key') || GROQ_KEY
+    const [autoSpeak, setAutoSpeak]           = useState(
+        () => localStorage.getItem('bhavi_speak') !== 'false'
     );
-    const [autoSpeak, setAutoSpeak] = useState(
-        () => localStorage.getItem('nanbhan_speak') !== 'false'
-    );
-    const [keyStatus, setKeyStatus] = useState('✅ API key loaded.');
-    const [keyStatusCls, setKeyStatusCls] = useState('ok');
-    const [waveActive, setWaveActive] = useState(false);
-    const [dockHint, setDockHint] = useState('');
-    const [liveLabel, setLiveLabel] = useState('Live');
-    const [contextLoaded, setContextLoaded] = useState(false);
-    const [crisisVisible, setCrisisVisible] = useState(false);
-    const [patientName, setPatientName] = useState('Friend');
-    const [systemPrompt, setSystemPrompt] = useState(
-        'You are Bhavi, a warm AI companion for senior citizens. Be caring, brief and friendly.'
-    );
+    const [waveActive, setWaveActive]         = useState(false);
+    const [dockHint, setDockHint]             = useState('');
+    const [liveLabel, setLiveLabel]           = useState('Live');
+    const [contextLoaded, setContextLoaded]   = useState(false);
+    const [crisisVisible, setCrisisVisible]   = useState(false);
+    const [patientName, setPatientName]       = useState('Friend');
+    const [pipelineOk, setPipelineOk]         = useState(null);
+    const [lastEmotion, setLastEmotion]       = useState(null);
+    const [memoriesUsed, setMemoriesUsed]     = useState(0);
+    // v2.0: Voice quota state
+    const [quotaState, setQuotaState]         = useState(DEFAULT_QUOTA);
+    
+    // History sidebar
+    const [showHistory, setShowHistory]       = useState(false);
+    const [historyData, setHistoryData]       = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [currentSessionId, setCurrentSessionId] = useState(null);
 
-    // Dynamic UI translations
+    const currentLang = LANG_CYCLE[langIdx];
+
     const tr = useTranslate({
-        title: 'AI Companion',
-        diary_badge: 'Diary Connected',
-        mic_start: 'Tap to Speak',
-        mic_stop: 'Tap to Stop',
-        type_msg: 'Type your message...',
-        send: 'Send',
-        thinking: 'Bhavi is thinking...',
-        auto_speak: 'Auto-speak replies',
-        api_key: 'Groq API Key',
-        clear: 'Clear Chat',
-        companion_hint: 'Tap the mic and speak in your language',
+        title:          'Bhavi — AI Companion',
+        diary_badge:    'Diary Connected',
+        type_msg:       'Type your message…',
+        auto_speak:     'Auto-speak replies',
+        offline_mode:   'Offline AI (Local)',
+        privacy_badge:  '🔒 Private',
     });
 
-    // ── Refs ────────────────────────────────────────────────────────────
-    const historyRef = useRef([]);
-    const recognitionRef = useRef(null);
-    const currentAudioRef = useRef(null);
-    const messagesEndRef = useRef(null);
-    const wavePathRef = useRef(null);
-    const waveTimerRef = useRef(null);
-    const wavePhaseRef = useRef(0);
-    const textareaRef = useRef(null);
-    const pendingGreetRef = useRef(null);
-    const processTurnRef = useRef(null);
-    const startMicRef = useRef(null);
-    const autoSpeakRef = useRef(localStorage.getItem('nanbhan_speak') !== 'false');
-    const audioUnlocked = useRef(false);   // tracks whether AudioContext was unlocked
+    // ── Refs ─────────────────────────────────────────────────────────────────
+    const recognitionRef   = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef   = useRef([]);
+    const currentAudioRef  = useRef(null);
+    const messagesEndRef   = useRef(null);
+    const wavePathRef      = useRef(null);
+    const waveTimerRef     = useRef(null);
+    const wavePhaseRef     = useRef(0);
+    const textareaRef      = useRef(null);
+    const pendingGreetRef  = useRef(null);
+    const processTurnRef   = useRef(null);
+    const startMicRef      = useRef(null);
+    const autoSpeakRef     = useRef(localStorage.getItem('bhavi_speak') !== 'false');
+    const audioUnlocked    = useRef(false);
+    const browserSTTRef    = useRef('');
 
-    const ORB_ICONS = { idle: '🤍', listening: '🎙️', thinking: '💭', speaking: '🔊' };
-    const ORB_LABELS = {
-        idle: 'உங்கள் நண்பன்',
-        listening: 'கேட்கிறேன்…',
-        thinking: 'யோசிக்கிறேன்…',
-        speaking: 'பேசுகிறேன்…'
+    const ORB_ICONS  = { idle: '🤍', listening: '🎙️', thinking: '💭', speaking: '🔊' };
+    const getOrbLabels = (langApi) => {
+        if (langApi === 'en') return { idle: 'Your Friend', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking…' };
+        if (langApi === 'hi') return { idle: 'आपका दोस्त', listening: 'सुन रहा हूँ…', thinking: 'सोच रहा हूँ…', speaking: 'बोल रहा हूँ…' };
+        return { idle: 'உங்கள் நண்பன்', listening: 'கேட்கிறேன்…', thinking: 'யோசிக்கிறேன்…', speaking: 'பேசுகிறேன்…' };
     };
+    const ORB_LABELS = getOrbLabels(currentLang.api);
 
-    // ── Auto-scroll ──────────────────────────────────────────────────────
+    // ── Auto-scroll ───────────────────────────────────────────────────────────
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // ── Dock hint ────────────────────────────────────────────────────────
+    // ── Dock hint ─────────────────────────────────────────────────────────────
     useEffect(() => {
+        const exhausted = quotaState.voice_exhausted;
         const h = {
-            idle: `🎙️ Mic தொடுங்கள் · ${recogLang === 'ta-IN' ? '🇮🇳 Tamil' : '🇬🇧 English'}`,
-            listening: '⏹ நிறுத்த மீண்டும் Mic தொடுங்கள்',
-            thinking: '💭 யோசிக்கிறேன்…',
-            speaking: '🔊 பேசுகிறேன்…'
+            idle:      exhausted
+                ? '🔇 Voice limit reached · type to continue'
+                : `🎙️ Tap mic · ${currentLang.full}`,
+            listening: '⏹ Tap again to stop',
+            thinking:  '💭 Thinking…',
+            speaking:  '🔊 Speaking…',
         };
         setDockHint(h[orbState] || '');
         setLiveLabel(orbState === 'idle' ? 'Live' : (ORB_LABELS[orbState] || 'Live').replace('…', ''));
-    }, [orbState, recogLang]);
+    }, [orbState, langIdx, quotaState.voice_exhausted]);
 
-    // ── Load context + greeting ─────────────────────────────────────────
+    // ── History sidebar (Fetch Sessions) ──────────────────────────────────────
+    useEffect(() => {
+        if (showHistory) {
+            setHistoryLoading(true);
+            fetch(`${API_BASE}/companion/sessions/`)
+                .then(r => r.json())
+                .then(data => {
+                    setHistoryData(data.sessions || []);
+                    setHistoryLoading(false);
+                })
+                .catch(() => setHistoryLoading(false));
+        }
+    }, [showHistory]);
+
+    // ── Load specific session ─────────────────────────────────────────────────
+    const loadSessionHistory = useCallback(async (sessionId) => {
+        setHistoryLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/companion/history/?session_id=${sessionId}`);
+            const data = await res.json();
+            if (data.success) {
+                // Clear current text and load the past conversation
+                setMessages(
+                    data.messages.map(m => ({
+                        role: m.role === 'assistant' ? 'ai' : 'user',
+                        text: m.message,
+                        time: m.time,
+                        emotion: m.emotion,
+                    }))
+                );
+                setCurrentSessionId(sessionId);
+                setShowHistory(false);
+            }
+        } catch { /* ignore */ }
+        setHistoryLoading(false);
+    }, []);
+
+    // ── Quota helpers ─────────────────────────────────────────────────────────
+    const applyQuota = useCallback((q) => {
+        if (!q) return;
+        setQuotaState(prev => ({
+            ...prev,
+            voice_quota_used:  q.voice_quota_used  ?? prev.voice_quota_used,
+            voice_quota_limit: q.voice_quota_limit ?? prev.voice_quota_limit,
+            voice_exhausted:   q.voice_exhausted   ?? prev.voice_exhausted,
+            quota_resets_in:   q.quota_resets_in   ?? prev.quota_resets_in,
+            should_warn:       q.should_warn       ?? prev.should_warn,
+            upgrade_msg_shown: q.upgrade_msg_shown ?? prev.upgrade_msg_shown,
+            tier:              q.tier              ?? prev.tier,
+        }));
+        if (q.voice_exhausted) setShowTextInput(true);
+    }, []);
+
+    const fetchQuota = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/companion/quota/`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) applyQuota(data);
+            }
+        } catch { /* silent */ }
+    }, [applyQuota]);
+
+    // ── Quota bar computed values ─────────────────────────────────────────────
+    const quotaPct       = Math.min(100, (quotaState.voice_quota_used / (quotaState.voice_quota_limit || 1)) * 100);
+    const quotaFillClass = quotaPct >= 100 ? 'high' : quotaPct >= 80 ? 'mid' : 'low';
+    const quotaWrapClass = quotaState.voice_exhausted ? 'exhausted' : quotaState.should_warn ? 'warn' : '';
+    const quotaLabelCls  = quotaState.voice_exhausted ? 'exhausted' : quotaState.should_warn ? 'warn' : '';
+    const quotaResetStr  = quotaState.quota_resets_in >= 1
+        ? `Resets in ${Math.round(quotaState.quota_resets_in)}h`
+        : `Resets in ${Math.round(quotaState.quota_resets_in * 60)}m`;
+
+    // ── Check pipeline + quota on mount ───────────────────────────────────────
+    useEffect(() => {
+        fetch(`${API_BASE}/companion/status/`)
+            .then(r => r.json())
+            .then(d => setPipelineOk(d.success && d.status?.ollama?.running))
+            .catch(() => setPipelineOk(false));
+        fetchQuota();
+    }, [fetchQuota]);
+
+    // ── Load context + greeting ───────────────────────────────────────────────
     useEffect(() => {
         async function init() {
             try {
-                const ctxRes = await fetch(`${API_BASE}/companion/context/`);
+                const ctxRes  = await fetch(`${API_BASE}/companion/context/`);
                 const ctxData = await ctxRes.json();
-                let name = 'Friend', diaryTxt = 'No diary entries yet.', assmtTxt = '';
-
+                let name = 'Friend';
                 if (ctxData.success) {
                     name = ctxData.profile?.name || 'Friend';
                     setPatientName(name);
                     setContextLoaded(true);
-                    if (ctxData.diary_entries?.length > 0) {
-                        diaryTxt = ctxData.diary_entries.map(e =>
-                            `[${e.date}] ${e.english_text || e.original_text} (emotion:${e.emotion || '?'}, mood:${e.mood_score ?? '?'}/10)`
-                        ).join('\n');
-                    }
-                    if (ctxData.latest_assessment) {
-                        const a = ctxData.latest_assessment;
-                        assmtTxt = `\n=== HEALTH SCREENING ===\nDate:${a.date} | Risk:${a.risk_level} | Score:${a.total_score}/30\nNever alarm them or quote scores.`;
-                    }
                 }
-
-                setSystemPrompt(`You are "Bhavi" (உங்கள் நண்பன்) — a warm AI companion for a senior citizen.
-
-=== PROFILE ===
-Name: ${name}
-
-=== RECENT DIARY ===
-${diaryTxt}
-${assmtTxt}
-
-══════════════════════════════
-⚠️ LANGUAGE RULE (STRICT) ⚠️
-Tamil script in message → reply ENTIRELY in Tamil.
-English (Latin) → reply ENTIRELY in English.
-No mixing. No Tanglish.
-══════════════════════════════
-
-REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
-
-                const histRes = await fetch(`${API_BASE}/companion/history/`);
+                const histRes  = await fetch(`${API_BASE}/companion/history/`);
                 const histData = await histRes.json();
-
                 if (histData.success && histData.messages?.length > 0) {
                     setMessages(histData.messages.map(m => ({
-                        role: m.role === 'assistant' ? 'ai' : 'user',
-                        text: m.message, time: m.time
+                        role:    m.role === 'assistant' ? 'ai' : 'user',
+                        text:    m.message,
+                        time:    m.time,
+                        emotion: m.emotion,
                     })));
-                    historyRef.current = histData.messages.map(m => ({
-                        role: m.role === 'assistant' ? 'assistant' : 'user',
-                        content: m.message
-                    }));
                 } else {
                     try {
-                        const gRes = await fetch(`${API_BASE}/companion/greet/`);
+                        const gRes  = await fetch(`${API_BASE}/companion/greet/`);
                         const gData = await gRes.json();
-                        const msg = gData.success
-                            ? gData.message
-                            : `Hello ${name}! I'm Bhavi, your AI companion. How are you feeling today?`;
+                        const msg   = gData.success ? gData.message
+                            : `Hello ${name}! I'm Bhavi. How are you feeling today?`;
                         setMessages([{ role: 'ai', text: msg, time: getTime() }]);
                         pendingGreetRef.current = msg;
                     } catch {
@@ -178,28 +259,24 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                         pendingGreetRef.current = fb;
                     }
                 }
-            } catch (err) {
-                console.error('[AICompanion] init error:', err);
-                const fb = "Hello! I'm Bhavi, your AI companion. How are you feeling today?";
+            } catch {
+                const fb = "Hello! I'm Bhavi, your companion. How are you feeling today?";
                 setMessages([{ role: 'ai', text: fb, time: getTime() }]);
                 pendingGreetRef.current = fb;
             }
         }
         init();
-
-        // Pre-warm speechSynthesis voices list
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
-
         return () => {
             clearInterval(waveTimerRef.current);
             recognitionRef.current?.abort();
         };
     }, []);
 
-    // ── Wave animation ───────────────────────────────────────────────────
+    // ── Wave animation ────────────────────────────────────────────────────────
     const startWave = useCallback((color = 'rgba(96,165,250,0.8)') => {
         setWaveActive(true);
         if (wavePathRef.current) wavePathRef.current.setAttribute('stroke', color);
@@ -220,18 +297,15 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
         wavePathRef.current?.setAttribute('d', 'M0,40 Q75,40 150,40 Q225,40 300,40');
     }, []);
 
-    // ── TASK 1 & 2: Audio unlock (defeats browser autoplay policy) ──────
-    // Called synchronously on mic button click (user gesture).
-    // After this, audio.play() works even after an async Groq API call.
+    // ── Audio unlock ──────────────────────────────────────────────────────────
     const unlockAudio = useCallback(() => {
         if (audioUnlocked.current) return;
         try {
             const AC = window.AudioContext || window.webkitAudioContext;
             if (AC) {
                 const ctx = new AC();
-                const buf = ctx.createBuffer(1, 1, 22050);
                 const src = ctx.createBufferSource();
-                src.buffer = buf;
+                src.buffer = ctx.createBuffer(1, 1, 22050);
                 src.connect(ctx.destination);
                 src.start(0);
                 setTimeout(() => ctx.close(), 200);
@@ -240,139 +314,141 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
         audioUnlocked.current = true;
     }, []);
 
-    // ── TASK 1: Web Speech fallback (English always works; Tamil when voice installed) ──
+    // ── Web Speech TTS fallback ───────────────────────────────────────────────
     const webSpeechFallback = useCallback((text, lang, resolve) => {
         if (!('speechSynthesis' in window)) { resolve(); return; }
         window.speechSynthesis.cancel();
         setTimeout(() => {
             const voices = window.speechSynthesis.getVoices();
-            const utt = new SpeechSynthesisUtterance(text);
+            const utt    = new SpeechSynthesisUtterance(text);
             utt.rate = 0.85; utt.pitch = 1.0; utt.volume = 1;
-
-            if (lang === 'Tamil') {
-                utt.lang = 'ta-IN';
-                const v = voices.find(v => v.lang === 'ta-IN')
-                    || voices.find(v => v.lang.startsWith('ta'))
-                    || voices[0] || null;
-                if (v) utt.voice = v;
-            } else {
-                utt.lang = 'en-US';
-                const v = voices.find(v => v.lang === 'en-US')
-                    || voices.find(v => v.lang === 'en-IN')
-                    || voices.find(v => v.lang.startsWith('en'))
-                    || voices[0] || null;
-                if (v) utt.voice = v;
-            }
+            const langMap = { Tamil: 'ta-IN', Hindi: 'hi-IN', English: 'en-IN' };
+            utt.lang = langMap[lang] || 'en-IN';
+            const v = voices.find(v => v.lang === utt.lang)
+                || voices.find(v => v.lang.startsWith(utt.lang.split('-')[0]))
+                || voices[0] || null;
+            if (v) utt.voice = v;
             utt.onstart = () => { setOrbState('speaking'); startWave('rgba(52,211,153,0.8)'); };
-            utt.onend = () => { stopWave(); setOrbState('idle'); resolve(); };
+            utt.onend   = () => { stopWave(); setOrbState('idle'); resolve(); };
             utt.onerror = () => { stopWave(); setOrbState('idle'); resolve(); };
             window.speechSynthesis.speak(utt);
         }, 100);
     }, [startWave, stopWave]);
 
-    // ── TASK 1 & 2: PRIMARY TTS — gTTS backend ──────────────────────────
-    // /api/tts/?lang=ta&text=... → returns audio/mpeg
-    // Works for BOTH Tamil AND English perfectly via Google TTS.
-    // unlockAudio() on mic click ensures audio.play() passes after async Groq.
+    // ── TTS via backend (Piper → gTTS fallback) ───────────────────────────────
     const speak = useCallback((text, lang) => {
         if (!autoSpeakRef.current || !text?.trim()) return Promise.resolve();
-
-        // Stop anything playing
         window.speechSynthesis?.cancel();
         if (currentAudioRef.current) {
             currentAudioRef.current.pause();
             currentAudioRef.current.src = '';
             currentAudioRef.current = null;
         }
-
-        const gttsLang = lang === 'Tamil' ? 'ta' : 'en';
-        const url = `${API_BASE}/tts/?lang=${gttsLang}&text=${encodeURIComponent(text)}`;
-
+        const langMap = { Tamil: 'ta', Hindi: 'hi', English: 'en' };
+        const apiLang = langMap[lang] || 'en';
+        const url     = `${API_BASE}/tts/?lang=${apiLang}&text=${encodeURIComponent(text)}`;
         return new Promise(resolve => {
             const audio = new Audio();
             currentAudioRef.current = audio;
-
-            const done = () => {
-                stopWave();
-                setOrbState('idle');
-                currentAudioRef.current = null;
-                resolve();
-            };
-
-            audio.onplay = () => { setOrbState('speaking'); startWave('rgba(52,211,153,0.8)'); };
-            audio.onended = done;
-            audio.onerror = (e) => {
-                console.warn('[gTTS] error → Web Speech fallback', e);
+            let fallbackTriggered = false;
+            
+            const triggerFallback = () => {
+                if (fallbackTriggered) return;
+                fallbackTriggered = true;
                 currentAudioRef.current = null;
                 stopWave(); setOrbState('idle');
                 webSpeechFallback(text, lang, resolve);
             };
 
+            const done = () => { stopWave(); setOrbState('idle'); currentAudioRef.current = null; resolve(); };
+            audio.onplay  = () => { setOrbState('speaking'); startWave('rgba(52,211,153,0.8)'); };
+            audio.onended = done;
+            audio.onerror = triggerFallback;
             audio.src = url;
-            // play() works because unlockAudio() was called synchronously on mic click
-            audio.play().catch(err => {
-                console.warn('[gTTS] play() blocked → Web Speech fallback', err);
-                currentAudioRef.current = null;
-                webSpeechFallback(text, lang, resolve);
-            });
+            audio.play().catch(triggerFallback);
         });
     }, [startWave, stopWave, webSpeechFallback]);
 
-    // ── Groq API (direct from frontend — fast) ──────────────────────────
-    const callGroq = useCallback(async (userText) => {
-        const key = apiKey || GROQ_KEY;
-        historyRef.current.push({ role: 'user', content: userText });
-        if (historyRef.current.length > 20) historyRef.current = historyRef.current.slice(-20);
-
+    // ── Call backend — text mode ──────────────────────────────────────────────
+    const callBhavi = useCallback(async (userText) => {
         try {
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${key}`
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...historyRef.current
-                    ],
-                    temperature: 0.78,
-                    max_tokens: 600,
-                    stream: false
-                })
-            });
-            if (!res.ok) {
-                if (res.status === 401) return 'API key invalid. Check Settings.';
-                return 'AI connection failed. Try again.';
-            }
-            const data = await res.json();
-            const reply = data.choices?.[0]?.message?.content?.trim() || 'I am here for you.';
-            historyRef.current.push({ role: 'assistant', content: reply });
-            return reply;
-        } catch (e) {
-            console.error('[Groq]', e);
-            return 'Network error. Please try again.';
-        }
-    }, [apiKey, systemPrompt]);
-
-    // ── Save to backend (fire-and-forget) ───────────────────────────────
-    const saveToBackend = useCallback(async (userText, aiReply) => {
-        try {
-            await fetch(`${API_BASE}/companion/chat/`, {
-                method: 'POST',
+            const body = { text: userText };
+            if (currentSessionId) body.session_id = currentSessionId;
+            
+            const res = await fetch(`${API_BASE}/companion/chat/`, {
+                method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: userText, ai_response: aiReply })
+                body:    JSON.stringify(body),
             });
-        } catch { /* non-critical */ }
-    }, []);
+            if (!res.ok) return { ai_response: "I'm here with you.", emotion: null, crisis_flag: false };
+            const data = await res.json();
+            if (data.success) {
+                if (data.quota) applyQuota(data.quota);
+                if (data.session_id) setCurrentSessionId(data.session_id);
+                return {
+                    ai_response:    data.ai_response  || "I'm here for you.",
+                    emotion:        data.emotion      || null,
+                    crisis_flag:    data.crisis_flag  || false,
+                    memories_used:  data.memories_used || 0,
+                    voice_rejected: data.voice_rejected || false,
+                };
+            }
+            return { ai_response: "I'm here with you.", emotion: null, crisis_flag: false };
+        } catch { return { ai_response: 'Connection error. Please try again.', emotion: null, crisis_flag: false }; }
+    }, [applyQuota, currentSessionId]);
 
-    // ── Full conversation turn ───────────────────────────────────────────
+    // ── Call backend — audio mode (Faster-Whisper STT) ────────────────────────
+    const callBhaviAudio = useCallback(async (audioBlob, langApi, browserStt) => {
+        try {
+            const fd = new FormData();
+            fd.append('audio', audioBlob, 'recording.webm');
+            if (langApi) fd.append('lang', langApi);
+            if (browserStt) fd.append('browser_stt', browserStt);
+            if (currentSessionId) fd.append('session_id', currentSessionId);
+            
+            const res = await fetch(`${API_BASE}/companion/chat/`, { method: 'POST', body: fd });
+            if (!res.ok) return { ai_response: "I'm here with you.", user_text: '', emotion: null, crisis_flag: false };
+            const data = await res.json();
+            if (data.success) {
+                if (data.quota) applyQuota(data.quota);
+                if (data.session_id) setCurrentSessionId(data.session_id);
+                return {
+                    ai_response:    data.ai_response  || "I'm here for you.",
+                    user_text:      data.user_text    || '',
+                    emotion:        data.emotion      || null,
+                    crisis_flag:    data.crisis_flag  || false,
+                    memories_used:  data.memories_used || 0,
+                    voice_rejected: data.voice_rejected || false,
+                };
+            }
+            return { ai_response: "I'm here with you.", user_text: '', emotion: null, crisis_flag: false };
+        } catch { return { ai_response: 'Connection error.', user_text: '', emotion: null, crisis_flag: false }; }
+    }, [applyQuota, currentSessionId]);
+
+    // ── Safety follow-up ──────────────────────────────────────────────────────
+    const safetyFollowUp = useCallback(async (userText, lang) => {
+        const kw = [
+            'give up', 'hopeless', 'no reason', 'want to die', 'nobody cares',
+            'suicide', 'kill', 'kill myself',
+            'பொருளில்லை', 'தேவையில்லை', 'போய்விடுவேன்', 'யாரும் இல்லை', 'தற்கொலை', 'கொல்ல',
+            'मरना चाहता', 'जीने का मन नहीं', 'आत्महत्या', 'मार',
+        ];
+        if (!kw.some(w => userText.toLowerCase().includes(w))) return;
+        await new Promise(r => setTimeout(r, 1200));
+        const safety = lang === 'Tamil'
+            ? '💜 உங்கள் அன்பானவர்களை ஒரு முறை அழைத்துப் பேசுங்கள். அவர்கள் உங்களை மிகவும் நேசிக்கிறார்கள்.'
+            : lang === 'Hindi'
+            ? '💜 आज अपने किसी प्रियजन को फ़ोन करें। वे आपसे बहुत प्यार करते हैं।'
+            : '💜 It might help to call someone you love today. They care about you deeply.';
+        setMessages(prev => [...prev, { role: 'ai', text: safety, time: getTime() }]);
+        await speak(safety, lang);
+    }, [speak]);
+
+    // ── Process text turn ─────────────────────────────────────────────────────
     const processTurn = useCallback(async (userText) => {
         if (!userText.trim()) return;
         const lang = detectLang(userText);
 
-        // Speak pending greeting on first user interaction
         if (pendingGreetRef.current) {
             const g = pendingGreetRef.current;
             pendingGreetRef.current = null;
@@ -385,132 +461,216 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
         setMessages(prev => [...prev, { role: 'thinking' }]);
         setOrbState('thinking');
 
-        const reply = await callGroq(userText);
+        const result = await callBhavi(userText);
+        const reply  = result.ai_response;
+
+        if (result.emotion) {
+            setLastEmotion(result.emotion);
+            if (result.memories_used > 0) setMemoriesUsed(result.memories_used);
+        }
 
         setMessages(prev => {
             const f = prev.filter(m => m.role !== 'thinking');
-            return [...f, { role: 'ai', text: reply, time: getTime() }];
+            return [...f, { role: 'ai', text: reply, time: getTime(), emotion: result.emotion?.detected }];
         });
 
-        saveToBackend(userText, reply);
-
-        // Crisis detection
-        const crisisKw = ['want to die', 'end my life', 'no point', 'give up', 'nobody cares',
-            "can't go on", 'hurt myself', 'hopeless', 'பொருளில்லை', 'தேவையில்லை',
-            'போய்விடுவேன்', 'யாரும் இல்லை'];
-        if (crisisKw.some(w => userText.toLowerCase().includes(w))) {
+        if (result.crisis_flag) {
             setCrisisVisible(true);
             fetch(`${API_BASE}/companion/crisis/`, { method: 'POST' }).catch(() => { });
         }
 
-        // ── TASK 2: Speak reply ──
+        await safetyFollowUp(userText, lang);
         await speak(reply, lang);
-
-        // Safety follow-up
-        const hopelessKw = ['give up', 'hopeless', 'no reason', 'want to die', 'nobody cares',
-            'பொருளில்லை', 'தேவையில்லை', 'போய்விடுவேன்', 'யாரும் இல்லை'];
-        if (hopelessKw.some(w => userText.toLowerCase().includes(w))) {
-            await new Promise(r => setTimeout(r, 1200));
-            const safety = lang === 'Tamil'
-                ? '💜 உங்கள் அன்பானவர்களை ஒரு முறை அழைத்துப் பேசுங்கள். அவர்கள் உங்களை மிகவும் நேசிக்கிறார்கள்.'
-                : '💜 It might help to call someone you love today. They care about you deeply.';
-            setMessages(prev => [...prev, { role: 'ai', text: safety, time: getTime() }]);
-            await speak(safety, lang);
-        }
-
         setOrbState('idle');
         stopWave();
-    }, [callGroq, speak, stopWave, saveToBackend]);
+    }, [callBhavi, speak, stopWave, safetyFollowUp]);
 
-    // Keep processTurn ref up to date
+    // ── Process audio turn (Faster-Whisper) ───────────────────────────────────
+    const processAudioTurn = useCallback(async (audioBlob, langApi, browserStt) => {
+        if (pendingGreetRef.current) {
+            const g = pendingGreetRef.current;
+            pendingGreetRef.current = null;
+            await speak(g, 'English');
+        }
+
+        setShowTranscript(false);
+        setTranscript('');
+        setMessages(prev => [...prev, { role: 'thinking' }]);
+        setOrbState('thinking');
+
+        const result = await callBhaviAudio(audioBlob, langApi, browserStt);
+
+        if (result.voice_rejected) {
+            setMessages(prev => prev.filter(m => m.role !== 'thinking'));
+            setOrbState('idle');
+            stopWave();
+            return;
+        }
+
+        const userText = result.user_text || '';
+        const reply    = result.ai_response;
+        const lang     = userText ? detectLang(userText) : 'English';
+
+        if (result.emotion) {
+            setLastEmotion(result.emotion);
+            if (result.memories_used > 0) setMemoriesUsed(result.memories_used);
+        }
+
+        setMessages(prev => {
+            const f = prev.filter(m => m.role !== 'thinking');
+            const next = [];
+            if (userText) next.push({ role: 'user', text: userText, time: getTime() });
+            next.push({ role: 'ai', text: reply, time: getTime(), emotion: result.emotion?.detected });
+            return [...f, ...next];
+        });
+
+        if (result.crisis_flag) {
+            setCrisisVisible(true);
+            fetch(`${API_BASE}/companion/crisis/`, { method: 'POST' }).catch(() => { });
+        }
+
+        await speak(reply, lang);
+        setOrbState('idle');
+        stopWave();
+    }, [callBhaviAudio, speak, stopWave]);
+
     useEffect(() => { processTurnRef.current = processTurn; });
 
-    // ── Mic toggle (unlocks audio FIRST on user gesture) ─────────────────
+    // ── Mic toggle ────────────────────────────────────────────────────────────
     const toggleMic = useCallback(() => {
-        unlockAudio();                       // ← synchronous, defeats autoplay policy
+        if (quotaState.voice_exhausted) {
+            setShowTextInput(true);
+            return;
+        }
+        unlockAudio();
         if (isRecording) {
+            mediaRecorderRef.current?.stop();
             recognitionRef.current?.stop();
         } else {
             startMicRef.current?.();
         }
-    }, [isRecording, unlockAudio]);
+    }, [isRecording, unlockAudio, quotaState.voice_exhausted]);
 
-    // ── Start speech recognition ─────────────────────────────────────────
+    // ── Start recording (MediaRecorder + browser STT preview) ─────────────────
     const startMicFn = useCallback(() => {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) {
-            setMessages(prev => [...prev, {
-                role: 'ai',
-                text: 'Voice input not supported. Please use Chrome or click ⌨️ to type.',
-                time: getTime()
-            }]);
-            setShowTextInput(true);
-            return;
-        }
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+            .then(stream => {
+                // ── MediaRecorder — audio blob for Faster-Whisper ────────────
+                const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? { mimeType: 'audio/webm;codecs=opus' }
+                    : {};
+                const mr = new MediaRecorder(stream, opts);
+                mediaRecorderRef.current = mr;
+                audioChunksRef.current   = [];
+                browserSTTRef.current    = '';
 
-        const rec = new SR();
-        rec.continuous = true;
-        rec.interimResults = true;
-        rec.maxAlternatives = 1;
-        rec.lang = recogLang;
-        recognitionRef.current = rec;
+                mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
 
-        let finalText = '';
+                mr.onstop = () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    setIsRecording(false);
+                    const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    audioChunksRef.current = [];
+                    if (blob.size > 2000) {
+                        processAudioTurn(blob, currentLang.api, browserSTTRef.current);
+                        browserSTTRef.current = '';
+                    } else {
+                        setOrbState('idle');
+                        stopWave();
+                        setShowTranscript(false);
+                    }
+                };
 
-        rec.onstart = () => {
-            setIsRecording(true);
-            finalText = '';
-            setOrbState('listening');
-            startWave('rgba(239,68,68,0.8)');
-            setShowTranscript(true);
-            setTranscript('…');
-        };
+                mr.start(250);
+                setIsRecording(true);
+                setOrbState('listening');
+                startWave('rgba(239,68,68,0.8)');
+                setShowTranscript(true);
+                setTranscript('🎙️ Listening…');
 
-        rec.onresult = (e) => {
-            let interim = ''; finalText = '';
-            for (let i = 0; i < e.results.length; i++) {
-                if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-                else interim += e.results[i][0].transcript;
-            }
-            setTranscript(`"${finalText || interim}"`);
-        };
+                // ── Browser STT — live transcript preview only ───────────────
+                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SR) {
+                    const rec = new SR();
+                    rec.continuous     = true;
+                    rec.interimResults = true;
+                    rec.lang           = currentLang.code;
+                    recognitionRef.current = rec;
+                    rec.onresult = (e) => {
+                        let interim = '', final = '';
+                        for (let i = 0; i < e.results.length; i++) {
+                            if (e.results[i].isFinal) final += e.results[i][0].transcript;
+                            else interim += e.results[i][0].transcript;
+                        }
+                        const text = final || interim;
+                        setTranscript(`"${text}"`);
+                        browserSTTRef.current = text;
+                    };
+                    rec.onerror = () => { /* silent — MediaRecorder handles actual turn */ };
+                    try { rec.start(); } catch { /* STT unavailable, MediaRecorder still works */ }
+                }
+            })
+            .catch(() => {
+                // Fallback: browser STT only (no audio file upload)
+                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SR) {
+                    setMessages(prev => [...prev, {
+                        role: 'ai',
+                        text: 'Microphone access denied. Please allow mic or use ⌨️ to type.',
+                        time: getTime(),
+                    }]);
+                    setShowTextInput(true);
+                    return;
+                }
+                const rec = new SR();
+                rec.continuous     = true;
+                rec.interimResults = true;
+                rec.lang           = currentLang.code;
+                recognitionRef.current = rec;
+                let finalText = '';
+                rec.onstart  = () => {
+                    setIsRecording(true);
+                    finalText = '';
+                    setOrbState('listening');
+                    startWave('rgba(239,68,68,0.8)');
+                    setShowTranscript(true);
+                    setTranscript('…');
+                };
+                rec.onresult = (e) => {
+                    let interim = ''; finalText = '';
+                    for (let i = 0; i < e.results.length; i++) {
+                        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+                        else interim += e.results[i][0].transcript;
+                    }
+                    setTranscript(`"${finalText || interim}"`);
+                };
+                rec.onend = () => {
+                    setIsRecording(false);
+                    if (finalText.trim()) processTurnRef.current?.(finalText.trim());
+                    else { setShowTranscript(false); setOrbState('idle'); stopWave(); }
+                };
+                rec.onerror = (e) => {
+                    setIsRecording(false);
+                    if (e.error === 'not-allowed') {
+                        setMessages(prev => [...prev, {
+                            role: 'ai',
+                            text: 'Microphone access denied. Use ⌨️ to type.',
+                            time: getTime(),
+                        }]);
+                        setShowTextInput(true);
+                    }
+                    setOrbState('idle'); stopWave();
+                };
+                rec.start();
+            });
+    }, [currentLang.code, startWave, stopWave, processAudioTurn]);
 
-        rec.onend = () => {
-            setIsRecording(false);
-            if (finalText.trim()) {
-                processTurnRef.current?.(finalText.trim());
-            } else {
-                setShowTranscript(false);
-                setOrbState('idle');
-                stopWave();
-            }
-        };
-
-        rec.onerror = (e) => {
-            console.error('[SpeechRec]', e.error);
-            setIsRecording(false);
-            if (e.error === 'not-allowed') {
-                setMessages(prev => [...prev, {
-                    role: 'ai',
-                    text: 'Microphone access denied. Allow mic in browser settings, or use ⌨️ to type.',
-                    time: getTime()
-                }]);
-                setShowTextInput(true);
-            }
-            setOrbState('idle');
-            stopWave();
-        };
-
-        rec.start();
-    }, [recogLang, startWave, stopWave]);
-
-    // Keep startMicFn ref up to date
     useEffect(() => { startMicRef.current = startMicFn; });
 
-    // ── Text input ───────────────────────────────────────────────────────
+    // ── Text input ────────────────────────────────────────────────────────────
     const sendTextMessage = () => {
         if (!textInput.trim()) return;
-        unlockAudio();          // also unlock for text path
+        unlockAudio();
         const t = textInput.trim();
         setTextInput('');
         processTurn(t);
@@ -520,103 +680,119 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(); }
     };
 
-    // ── Settings ─────────────────────────────────────────────────────────
-    const saveKey = () => {
-        const v = apiKey.trim();
-        if (!v || !v.startsWith('gsk_')) {
-            setKeyStatus('⚠️ Groq keys start with gsk_'); setKeyStatusCls('err'); return;
-        }
-        localStorage.setItem('nanbhan_key', v);
-        setKeyStatus('✅ Key saved!'); setKeyStatusCls('ok');
+    const cycleLang = () => {
+        setLangIdx(prev => {
+            const next = (prev + 1) % LANG_CYCLE.length;
+            localStorage.setItem('bhavi_lang_idx', String(next));
+            return next;
+        });
     };
 
     const toggleAutoSpeak = () => {
         setAutoSpeak(prev => {
             const next = !prev;
             autoSpeakRef.current = next;
-            localStorage.setItem('nanbhan_speak', String(next));
-            if (!next) { window.speechSynthesis?.cancel(); }
-            return next;
-        });
-    };
-
-    const toggleRecogLang = () => {
-        setRecogLang(prev => {
-            const next = prev === 'ta-IN' ? 'en-IN' : 'ta-IN';
-            localStorage.setItem('nanbhan_recognLang', next);
+            localStorage.setItem('bhavi_speak', String(next));
+            if (!next) window.speechSynthesis?.cancel();
             return next;
         });
     };
 
     const clearConversation = () => {
-        historyRef.current = [];
         window.speechSynthesis?.cancel();
-        if (currentAudioRef.current) {
-            currentAudioRef.current.pause();
-            currentAudioRef.current = null;
-        }
-        setOrbState('idle');
-        stopWave();
-        setCrisisVisible(false);
+        if (currentAudioRef.current) { currentAudioRef.current.pause(); currentAudioRef.current = null; }
+        setOrbState('idle'); stopWave(); setCrisisVisible(false);
+        setLastEmotion(null); setMemoriesUsed(0);
+        setCurrentSessionId(null);
         const fb = `Hello ${patientName}! I'm Bhavi. How are you feeling today?`;
         setMessages([{ role: 'ai', text: fb, time: getTime() }]);
         pendingGreetRef.current = fb;
     };
 
-    // ── Render ────────────────────────────────────────────────────────────
+    // ── Derived render values ─────────────────────────────────────────────────
+    const emotionInfo = lastEmotion ? (EMOTION_MAP[lastEmotion.detected] || EMOTION_MAP.neutral) : null;
+    const isExhausted = quotaState.voice_exhausted;
+    const showStatusStrip = emotionInfo || memoriesUsed > 0 || quotaState.should_warn;
+
     return (
         <DashboardLayout role="patient" title={tr.title}>
             <div className="companion-root">
 
-                {/* Ambient */}
+                {/* Ambient background */}
                 <div className="companion-ambient">
                     <div className="camb-orb blue" />
                     <div className="camb-orb purple" />
                     <div className="camb-orb teal" />
                 </div>
 
-                {/* Top bar */}
+                {/* ── TOP BAR ── */}
                 <div className="comp-topbar">
                     <div className="comp-topbar-title">
                         <div className="title-icon">🧠</div>
-                        AI Companion
+                        Bhavi
                         {contextLoaded && <span className="context-badge">📔 {tr.diary_badge}</span>}
+                        <span className="privacy-badge">{tr.privacy_badge}</span>
+                        {pipelineOk === true  && <span className="offline-badge">⚡ {tr.offline_mode}</span>}
+                        {pipelineOk === false && <span className="offline-badge warn">⚠️ Ollama offline</span>}
                     </div>
                     <div className="live-indicator">
-                        <div className="live-bars">
-                            <span /><span /><span /><span />
-                        </div>
+                        <div className="live-bars"><span /><span /><span /><span /></div>
                         <span className="live-label">{liveLabel}</span>
                     </div>
-                    <button className="comp-settings-btn" onClick={() => setShowSettings(s => !s)} title="Settings">
-                        <svg viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="3" />
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                        </svg>
-                    </button>
-                </div>
-
-                {/* Settings panel */}
-                <div className={`comp-settings-panel ${showSettings ? '' : 'hidden'}`}>
-                    <div>
-                        <label>Groq API Key</label>
-                        <div className="comp-api-row">
-                            <input type="password" className="comp-api-input" placeholder="gsk_…"
-                                value={apiKey} onChange={e => setApiKey(e.target.value)} />
-                            <button className="comp-save-btn" onClick={saveKey}>Save</button>
-                        </div>
-                        {keyStatus && <p className={`comp-key-status ${keyStatusCls}`}>{keyStatus}</p>}
-                    </div>
-                    <div className="comp-toggle-row">
-                        <label>{tr.auto_speak}</label>
-                        <label className="comp-toggle">
+                    <div className="comp-top-controls">
+                        <label className="comp-speak-toggle" title={tr.auto_speak}>
+                            🔊
                             <input type="checkbox" checked={autoSpeak} onChange={toggleAutoSpeak} />
-                            <span className="slider" />
+                            <span className="slider-mini" />
                         </label>
                     </div>
                 </div>
 
-                {/* Main stage */}
+                {/* ── VOICE QUOTA BAR ── */}
+                <div className="quota-strip">
+                    <div className={`quota-bar-wrap ${quotaWrapClass}`}>
+                        <span className="quota-icon">
+                            {isExhausted ? '🔇' : quotaState.should_warn ? '⚠️' : '🎙️'}
+                        </span>
+                        <div className="quota-bar-track">
+                            <div
+                                className={`quota-bar-fill ${quotaFillClass}`}
+                                style={{ width: `${quotaPct}%` }}
+                            />
+                        </div>
+                        <span className={`quota-label ${quotaLabelCls}`}>
+                            {(quotaState.voice_quota_used || 0).toFixed(1)} / {quotaState.voice_quota_limit.toFixed(0)} min
+                        </span>
+                        {isExhausted && (
+                            <span className="quota-reset-label">{quotaResetStr}</span>
+                        )}
+                        <span style={{ fontSize: '0.6rem', color: 'var(--dim)', textTransform: 'uppercase', flexShrink: 0 }}>
+                            {quotaState.tier}
+                        </span>
+                    </div>
+                </div>
+
+                {/* ── STATUS STRIP (emotion · memory · warning) ── */}
+                {showStatusStrip && (
+                    <div className="comp-status-strip">
+                        {emotionInfo && (
+                            <span className="emotion-badge" style={{ borderColor: emotionInfo.color }}>
+                                {emotionInfo.icon} {emotionInfo.label}
+                                {lastEmotion?.mood_score && ` · ${lastEmotion.mood_score}/10`}
+                            </span>
+                        )}
+                        {memoriesUsed > 0 && (
+                            <span className="memory-badge">
+                                🧠 {memoriesUsed} {memoriesUsed === 1 ? 'memory' : 'memories'} recalled
+                            </span>
+                        )}
+                        {quotaState.should_warn && !isExhausted && (
+                            <span className="warn-badge">⚡ Voice time running low</span>
+                        )}
+                    </div>
+                )}
+
+                {/* ── MAIN STAGE ── */}
                 <div className="comp-stage">
 
                     {/* Orb */}
@@ -655,6 +831,19 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                         </div>
                     )}
 
+                    {/* Voice exhausted upgrade notice */}
+                    {isExhausted && (
+                        <div className="upgrade-notice">
+                            <div className="upgrade-notice-header">🌸 Voice time for today is done</div>
+                            <div>
+                                Keep chatting by text — I&apos;m right here with you!
+                                {quotaState.tier === 'free' &&
+                                    ' For uninterrupted daily conversations, Bhavi Plus lets you talk freely every day. 💛'}
+                            </div>
+                            <div className="upgrade-notice-reset">{quotaResetStr}</div>
+                        </div>
+                    )}
+
                     {/* Messages */}
                     <div className="messages-area">
                         {messages.map((msg, i) => {
@@ -666,12 +855,20 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                                     </div>
                                 </div>
                             );
+                            const emoInfo = msg.emotion ? (EMOTION_MAP[msg.emotion] || null) : null;
                             return (
                                 <div key={i} className={`msg-row ${msg.role === 'ai' ? 'ai' : 'user'}`}>
                                     <div className="msg-avatar">{msg.role === 'ai' ? '🤍' : '👤'}</div>
                                     <div>
                                         <div className="msg-bubble">{msg.text}</div>
-                                        <div className="msg-time">{msg.time}</div>
+                                        <div className="msg-meta">
+                                            <span className="msg-time">{msg.time}</span>
+                                            {emoInfo && (
+                                                <span className="msg-emotion-tag" style={{ color: emoInfo.color }}>
+                                                    {emoInfo.icon} {emoInfo.label}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -680,13 +877,17 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                     </div>
                 </div>
 
-                {/* Bottom dock */}
+                {/* ── BOTTOM DOCK ── */}
                 <div className="comp-dock">
                     <div className={`text-input-row ${showTextInput ? '' : 'hidden'}`}>
-                        <textarea ref={textareaRef} rows="1" value={textInput}
+                        <textarea
+                            ref={textareaRef}
+                            rows="1"
+                            value={textInput}
                             placeholder={tr.type_msg}
                             onChange={e => setTextInput(e.target.value)}
-                            onKeyDown={handleTextKey} />
+                            onKeyDown={handleTextKey}
+                        />
                         <button className="send-text-btn" onClick={sendTextMessage}>
                             <svg viewBox="0 0 24 24">
                                 <line x1="22" y1="2" x2="11" y2="13" />
@@ -696,24 +897,37 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                     </div>
 
                     <div className="dock-buttons">
-                        <button className="dock-btn lang-btn" onClick={toggleRecogLang}
-                            title={recogLang === 'ta-IN' ? 'Switch to English' : 'Switch to Tamil'}>
-                            {recogLang === 'ta-IN' ? '🇮🇳 TA' : '🇬🇧 EN'}
+                        {/* Language cycle */}
+                        <button
+                            className="dock-btn lang-btn"
+                            onClick={cycleLang}
+                            title={`Speaking: ${currentLang.full} — tap to switch`}
+                        >
+                            {currentLang.label}
                         </button>
 
-                        <button className="dock-btn secondary"
+                        {/* Keyboard toggle */}
+                        <button
+                            className="dock-btn secondary"
                             onClick={() => { setShowTextInput(s => !s); setTimeout(() => textareaRef.current?.focus(), 100); }}
-                            title="Keyboard">
+                            title="Type message"
+                        >
                             <svg viewBox="0 0 24 24">
                                 <rect x="2" y="4" width="20" height="16" rx="2" />
                                 <path d="M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01M8 16h8" />
                             </svg>
                         </button>
 
+                        {/* Mic button — disabled when voice exhausted */}
                         <button
-                            className={`dock-btn mic-btn ${isRecording ? 'recording' : ''}`}
+                            id="bhavi-mic-btn"
+                            className={`dock-btn mic-btn ${isRecording ? 'recording' : ''} ${isExhausted ? 'exhausted' : ''}`}
                             onClick={toggleMic}
-                            title={isRecording ? 'Stop' : 'Start talking'}>
+                            disabled={isExhausted}
+                            title={isExhausted
+                                ? 'Voice time used up — type to continue'
+                                : isRecording ? 'Tap to stop' : 'Tap to speak'}
+                        >
                             <svg className="mic-on" viewBox="0 0 24 24">
                                 <path d="M12 2a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
                                 <path d="M19 10a7 7 0 0 1-14 0" />
@@ -725,17 +939,52 @@ REPLY: 2-4 sentences. End with one gentle question. Use name occasionally.`);
                             </svg>
                         </button>
 
-                        <button className="dock-btn secondary" onClick={clearConversation} title="Clear chat">
+                        {/* History */}
+                        <button className="dock-btn secondary" onClick={() => setShowHistory(true)} title="View chat history">
                             <svg viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="15" y1="9" x2="9" y2="15" />
-                                <line x1="9" y1="9" x2="15" y2="15" />
+                                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" fill="none" stroke="currentColor" strokeWidth="2" />
                             </svg>
+                        </button>
+
+                        {/* Clear / New Chat */}
+                        <button className="dock-btn secondary" onClick={clearConversation} title="Start new chat" style={{ padding: '0 12px', width: 'auto', gap: '6px' }}>
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                            <span style={{ fontSize: '13px', fontWeight: '600' }}>New Chat</span>
                         </button>
                     </div>
 
                     <p className="dock-hint">{dockHint}</p>
                 </div>
+
+                {/* ── HISTORY SIDEBAR ── */}
+                <div className={`history-sidebar ${showHistory ? 'open' : ''}`}>
+                    <div className="history-header">
+                        <h3>Past Conversations</h3>
+                        <button onClick={() => setShowHistory(false)}>×</button>
+                    </div>
+                    <div className="history-content">
+                        {historyLoading ? (
+                            <p style={{ color: 'var(--gray-500)' }}>Loading sessions...</p>
+                        ) : historyData.length === 0 ? (
+                            <p style={{ color: 'var(--gray-500)' }}>No past conversations found.</p>
+                        ) : (
+                            historyData.map((item, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className={`history-session-item ${currentSessionId === item.id ? 'active' : ''}`}
+                                    onClick={() => loadSessionHistory(item.id)}
+                                >
+                                    <div className="session-title">{item.title}</div>
+                                    <div className="session-date">{new Date(item.updated_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short'})}</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
             </div>
         </DashboardLayout>
     );
